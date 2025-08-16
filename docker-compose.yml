@@ -1,0 +1,86 @@
+services:
+  frontend:
+    image: certsync-frontend
+    container_name: certsync-frontend-1
+    build:
+      context: ./frontend
+    ports:
+      - "8877:80"
+    volumes:
+      - ./frontend/src:/usr/share/nginx/html
+    environment:
+      - TZ=${TZ}
+    depends_on:
+      - cert-manager
+    command: nginx -g 'daemon off;'
+    networks:
+      - certsync_network
+
+  cert-manager:
+    image: certsync-cert-manager
+    container_name: certsync-cert-manager-1
+    build:
+      context: ./backend
+    entrypoint: /app/entrypoint.sh # <--- NEW LINE: Specify the entrypoint script
+    command: [] # <--- CHANGE THIS: Empty the command, as entrypoint.sh handles it
+    volumes:
+      - ./backend:/app
+      # Add secure volume for ACME account key
+      - ./data/certsync:/etc/certsync
+    env_file:
+      - .env
+    ports:
+      - "8233:8233"
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://user:password@database:5432/certsyncdb
+      - TZ=${TZ}
+      # Set path for ACME key file
+      - ACME_ACCOUNT_KEY_PATH=/etc/certsync/acme_account_key.pem
+    networks:
+      - certsync_network
+
+  database:
+    image: postgres:13-alpine
+    container_name: certsync-database-1
+    volumes:
+      - certsync_postgres_data:/var/lib/postgresql/data/
+    networks:
+      - certsync_network
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=certsyncdb
+      - TZ=${TZ}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d certsyncdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ftp-server:
+    image: stilliard/pure-ftpd:latest
+    ports:
+      - "21:21"
+      - "30000-30009:30000-30009"
+    volumes:
+      - ./data/ftp:/home/certuser/
+    environment:
+      - "PUBLICHOST=172.20.20.10"
+      - "FTP_USER_NAME=certuser"
+      - "FTP_USER_PASS=ftppassword"
+      - "FTP_USER_HOME=/home/certuser"
+      - TZ=${TZ}
+    restart: always
+    networks:
+      - certsync_network
+
+volumes:
+  certsync_postgres_data:
+
+networks:
+  certsync_network:

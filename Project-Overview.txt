@@ -1,0 +1,270 @@
+# Multi-System Certificate Management System - Project Summary
+
+## Project Overview
+
+Building an open-source, web-based certificate management system for MSPs to handle the upcoming SSL certificate lifetime reductions (200 days in 2026, dropping to 47 days by 2029). This will dramatically increase certificate renewal frequency, making automation essential for operational sustainability.
+
+## Target Architecture
+- **Open-source internal tool** for MSP use (not commercial SaaS)
+- **Web-based interface** for management and monitoring (internal network only)
+- **Docker-based deployment** with docker-compose
+- **PostgreSQL database** with encrypted credential storage
+- **Microservices approach**: Separate containers for different functions
+- **Resource-efficient**: Mostly idle system with occasional renewal bursts
+
+## Core Functionality Required
+
+### Essential Features:
+- **Target System Management** across multiple platform types:
+  - Firewalls (FortiGate, PAN-OS, SonicWall)
+  - Web servers (IIS, Apache, Nginx)  
+  - Manual download option for emergency deployment
+- **DNS Provider Integration** (Cloudflare DNS-01 challenge, extensible for others)
+- **Individual certificate generation** via Let's Encrypt (no SAN complexity)
+- **Wildcard certificate support** (*.domain.com format)
+- **Automated certificate deployment** to target systems via APIs
+- **Web dashboard** showing certificate status and expiration dates
+- **Deployment tracking** with history and status monitoring
+- **Email alerts** for failures and upcoming expirations
+- **Basic logging and audit trail**
+- **Manual certificate renewal triggers**
+
+### Phase 2 Features:
+- Scheduling and maintenance windows
+- Enhanced role-based access (Admin/Technician/Read-Only for sales team)
+- Better reporting and compliance features
+- Mobile-responsive interface
+- Community contributions via GitHub
+
+## System Architecture & Navigation
+
+### Page Structure:
+1. **Dashboard** - Overview/status landing page
+2. **DNS Providers** - Configure Cloudflare tokens and domains
+3. **Target Systems** - Manage firewalls, web servers, and deployment destinations
+4. **Certificates** - Certificate lifecycle management (request, renew, download)
+5. **Deployments** - Link certificates to target systems, deployment history
+6. **Settings** - User management and system configuration
+
+### Data Relationships:
+- **DNS Providers**: Independent (domain + API token configuration)
+- **Target Systems**: Independent (connection details per system type)
+- **Certificates**: Dependent only on DNS Provider
+- **Deployments**: Links Certificates → Target Systems with history tracking
+
+## Realistic Resource Requirements
+
+### Hardware Needs:
+- **RAM**: 1-2GB total 
+- **CPU**: 1-2 cores (sufficient for MSP use)
+- **Storage**: 20-50GB (certificates, logs, database)
+- **Network**: Minimal bandwidth requirements
+
+### Container Footprint:
+- **Main application**: ~200-400MB RAM
+- **Database (PostgreSQL)**: ~100-200MB RAM
+- **FTP container** (SonicWall only): ~100MB RAM
+- **Total active**: ~500-700MB RAM
+- **Idle state**: ~300-400MB RAM
+
+### Actual Workload:
+- **47-day certificates** = renew every ~35-40 days
+- **100 target systems** = ~200 certificates total
+- **Daily renewals** = 3-6 certificates per day average
+- **Active processing** = 5-10 minutes per day
+- **99% of time** system is idle, just monitoring
+
+## Development Workflow and Database Management
+
+To ensure a stable and reproducible development environment across multiple machines, the project's `docker-compose.yml` has been updated to use a Docker "named volume" for the PostgreSQL database. This isolates the database data from the project's source code, preventing synchronization issues when using tools like `syncthing`.
+
+The old `data/postgres` directory has been removed and added to `.gitignore` to prevent it from being tracked by version control. This change enforces a clean separation between the application's code and its runtime data, which is a critical best practice for containerized development.
+
+The development workflow now relies on `git` for source code synchronization and `docker-compose` to manage the local development environment on each machine.
+
+## Target System API Research Summary
+
+### FortiGate (FortiOS) - EXCELLENT Support
+- **API Endpoint**: `/api/v2/monitor/vpn-certificate/local/import`
+- **Stable Since**: FortiOS 6.2.10 (2019-2020)
+- **Method**: Direct Base64 import via REST API
+- **Advantages**: No file transfer dependencies, session independence, consistent API
+
+### Palo Alto Networks (PAN-OS) - EXCELLENT Support
+- **API Type**: XML/REST API for certificate operations
+- **Stable Since**: PAN-OS 8.x+ (2017-2018)
+- **Method**: Leverage existing acme.sh panos deploy-hook integration
+- **Advantages**: Most mature, existing tooling, granular permissions
+
+### SonicWall (SonicOS) - MODERATE Support with Caveats
+- **API Endpoint**: `/api/sonicos/certificates/import/cert-key-pair/`
+- **Stable Since**: SonicOS 6.5+ (2018-2019)
+- **Method**: FTP-based import (requires separate FTP infrastructure)
+- **Limitations**: Single admin session, FTP dependency, generation-specific issues
+
+### Web Servers (Future Expansion)
+- **IIS**: PowerShell WebAdministration module + certificate store management
+- **Apache/Nginx**: File-based certificate deployment with service reload
+- **Method**: File copy + configuration reload via SSH/WinRM
+
+## Container Strategy
+
+```yaml
+# docker-compose.yml structure
+version: '3.8'
+services:
+  cert-manager:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - database
+
+  database:
+    image: postgres:13-alpine
+    # Always running
+
+  ftp-server:
+    image: stilliard/pure-ftpd:hardened
+    profiles:
+      - sonicwall  # Only runs when SonicWall support needed
+    volumes:
+      - ftp-data:/home/certuser
+    ports:
+      - "2121:21"
+
+volumes:
+  ftp-data:
+```
+
+### FTP Container Benefits:
+- **Zero resource overhead** when not needed (other platforms)
+- **Complete process isolation** and security
+- **Can restart FTP independently** of main application
+- **Easy to disable entirely** for non-SonicWall deployments
+- **Clean separation of concerns**
+
+## Platform Priority for Development
+
+1. **PAN-OS**: Start here (existing acme.sh integration to leverage)
+2. **FortiGate**: Add second (clean API, well documented)
+3. **SonicWall**: Add third (most complex, requires FTP container)
+4. **Web Servers**: Add as Phase 2 (IIS, Apache, Nginx)
+
+## Abstract Architecture
+
+```python
+# Clean separation of target system implementations
+class TargetSystemBase(ABC):
+    @abstractmethod
+    async def import_certificate(self, cert_data: CertificateData) -> bool:
+        pass
+    
+    @abstractmethod 
+    async def apply_certificate(self, cert_name: str) -> bool:
+        pass
+    
+    @abstractmethod
+    async def commit_changes(self) -> bool:
+        pass
+
+# Platform-specific implementations
+class FortiGateManager(TargetSystemBase):
+    # Direct Base64 API import (simplest)
+        
+class PanOSManager(TargetSystemBase): 
+    # Leverage acme.sh panos hook logic (most proven)
+        
+class SonicWallManager(TargetSystemBase):
+    # FTP container + API reference + retry logic (most complex)
+
+class IISManager(TargetSystemBase):
+    # PowerShell + certificate store management
+```
+
+## Business Context & Urgency
+
+### Regulatory Driver
+- **Certificate Lifetime Reduction**: 
+  - 2026: 200 days maximum
+  - 2027-2029: Progressive reduction to 47 days
+- **Current Impact**: 90-day certificates = ~4 renewals/year (manageable manually)
+- **Future Impact**: 47-day certificates = ~8-9 renewals/year (automation essential)
+- **MSP Pain Point**: Manual processes will become impossible to sustain
+
+### Market Opportunity
+- **Target Users**: MSPs managing mixed infrastructure environments
+- **Open Source Strategy**: Build reputation, solve community problem
+- **Competitive Landscape**: No existing multi-vendor certificate automation tools
+- **Resource Reality**: Much lighter than enterprise solutions
+
+## Scope Limitations
+
+### What This System Covers
+- **Firewall Certificate Applications**:
+  - HTTPS Management Interface (admin web GUI)
+  - SSL VPN Portals (remote access)
+  - IPSec VPN certificates
+  - SSL Inspection (decrypt/re-encrypt traffic)
+  - Load balancer SSL termination (on firewall)
+  - Captive portal authentication pages
+- **Web Server Certificates**:
+  - IIS website bindings
+  - Apache/Nginx virtual hosts
+  - Reverse proxy SSL termination
+
+### What This System Does NOT Cover
+- **Specialized Applications** (use existing mature tools):
+  - Exchange Server (mail) → ExchangeACME
+  - SharePoint applications → PowerShell scripts
+  - SQL Server SSL → application-specific tools
+  - Database SSL certificates → application-specific tools
+
+## Implementation Recommendations
+
+### Start Simple, Expand Systematically
+1. **Begin with PAN-OS only** (leverage acme.sh integration)
+2. **Add FortiGate** (clean API, well-documented)
+3. **Add SonicWall with FTP container** (most operational complexity)
+4. **Add web server support** (IIS, then Apache/Nginx)
+5. **Allow MSPs to use subset** of target system vendors as needed
+
+### Resource Strategy:
+- **Target deployment**: Single server/VM with 2GB RAM
+- **Container orchestration**: Docker Compose (not Kubernetes)
+- **Database**: PostgreSQL with encrypted credential storage
+- **Monitoring**: Basic logging and email alerts
+- **Security**: Application-level encryption, standard container practices
+
+## Key Success Factors
+
+### Technical:
+- **Reliable certificate renewal** (99%+ success rate)
+- **Simple deployment and maintenance**
+- **Clear logging and troubleshooting**
+- **Graceful handling of target system API differences**
+- **Self-contained solution** (minimal external dependencies)
+- **Individual certificate approach** (avoid SAN complexity)
+
+### Community:
+- **Comprehensive documentation** and examples
+- **Active GitHub repository** with issues/PRs
+- **MSP community engagement** and feedback
+- **Simple installation** (docker-compose up -d)
+- **Modular design** (use only needed target system vendors)
+
+## User Access & Permissions
+
+### Current Implementation:
+- **Admin**: Full access including user management
+- **Technician**: All certificate operations except user management
+- **Read-Only** (planned): View-only access for sales team
+
+### Security Features:
+- **Internal network only** (no external web exposure)
+- **Encrypted credential storage** with master key
+- **Audit logging** for compliance and troubleshooting
+- **API token security** for target system access
+
+The research confirms this is technically feasible with realistic resource requirements. 
+he modular target system approach provides clean architecture while keeping resource usage minimal for organizations that don't need all platform types.

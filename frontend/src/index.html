@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CertSync Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="nav-brand">CertSync</a>
+        <ul class="nav-links">
+            <li><a href="index.html" class="active" data-link>Dashboard</a></li>
+            <li><a href="dns.html" data-link>DNS Providers</a></li>
+            <li><a href="certificates.html" data-link>Certificates</a></li>
+            <li><a href="target_systems.html" data-link>Target Systems</a></li>
+            <li><a href="deployments.html" data-link>Deployments</a></li>
+            <li><a href="logs.html" data-link>Logs</a></li>
+            <li><a href="users.html" data-link>Users</a></li>
+            <li><a href="settings.html" data-link>Settings</a></li>
+        </ul>
+        <div class="nav-user">
+            <button id="sign-out-btn" class="sign-out-btn">Sign Out</button>
+        </div>
+    </aside>
+    <main class="main-content">
+        <div class="container">
+            <h1>Dashboard</h1>
+        <div class="status-cards">
+                    <div class="card">
+                        <h3 id="managed-domains">0</h3>
+                        <p>Managed Domains</p>
+                    </div>
+                    <div class="card">
+                        <h3 id="managed-systems"><span class="loading-placeholder"></span></h3>
+                        <p>Managed Systems</p>
+                    </div>
+                    <div class="card">
+                        <h3 id="issued-certificates">0</h3>
+                        <p>Issued Certificates</p>
+                    </div>
+            <div class="card">
+                <h3 id="expiring-soon">0</h3>
+                <p>Expiring Soon</p>
+            </div>
+            <div class="card">
+                <h3 id="failed-renewals">0</h3>
+                <p>Failed Renewals</p>
+            </div>
+        </div>
+        <div class="section">
+            <h2>Expiration Timeline</h2>
+            <div id="expiration-chart-container">
+                <canvas id="expiration-chart"></canvas>
+            </div>
+        </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <div id="add-firewall-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Add Firewall</h2>
+            <form id="add-firewall-form">
+                <label for="fw-name">Name:</label>
+                <input type="text" id="fw-name" required>
+                <label for="fw-vendor">Vendor:</label>
+                <select id="fw-vendor" required>
+                    <option value="fortigate">FortiGate</option>
+                    <option value="panos">Palo Alto</option>
+                    <option value="sonicwall">SonicWall</option>
+                </select>
+                <label for="fw-api-key">API Key:</label>
+                <input type="password" id="fw-api-key" required autocomplete="new-password">
+                <button type="submit">Add</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="request-cert-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Request Certificate</h2>
+            <form id="request-cert-form">
+                <label for="cert-name">Certificate Name:</label>
+                <input type="text" id="cert-name" required>
+                <label for="cert-domain">Domain:</label>
+                <input type="text" id="cert-domain" required>
+                <label for="dns-provider-select">DNS Provider:</label>
+                <select id="dns-provider-select" required></select>
+                <button type="submit">Request</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="deploy-cert-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Deploy Certificate</h2>
+            <form id="deploy-cert-form">
+                <input type="hidden" id="deploy-cert-name">
+                <input type="hidden" id="deploy-cert-body">
+                <input type="hidden" id="deploy-private-key">
+                <label for="deploy-firewalls">Select Firewalls:</label>
+                <select id="deploy-firewalls" multiple required></select>
+                <button type="submit">Deploy</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="cert-details-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Certificate Details</h2>
+            <pre id="cert-details-content"></pre>
+        </div>
+    </div>
+
+    <div id="manage-links-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2 id="manage-links-title">Manage Links for Certificate</h2>
+            <h3>Linked Firewalls</h3>
+            <ul id="linked-firewalls-list"></ul>
+            <hr>
+            <h3>Link New Firewall</h3>
+            <form id="link-firewall-form">
+                <input type="hidden" id="link-cert-id">
+                <select id="unlink-firewall-select"></select>
+                <button type="submit">Link Firewall</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="js/main.js"></script>
+    <div id="toast-container"></div>
+</body>
+</html>

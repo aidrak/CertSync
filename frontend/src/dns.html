@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNS - CertSync</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="nav-brand">CertSync</a>
+        <ul class="nav-links">
+            <li><a href="index.html" data-link>Dashboard</a></li>
+            <li><a href="dns.html" class="active" data-link>DNS Providers</a></li>
+            <li><a href="certificates.html" data-link>Certificates</a></li>
+            <li><a href="target_systems.html" data-link>Target Systems</a></li>
+            <li><a href="deployments.html" data-link>Deployments</a></li>
+            <li><a href="logs.html" data-link>Logs</a></li>
+            <li><a href="users.html" data-link>Users</a></li>
+            <li><a href="settings.html" data-link>Settings</a></li>
+        </ul>
+        <div class="nav-user">
+            <button id="sign-out-btn" class="sign-out-btn">Sign Out</button>
+        </div>
+    </aside>
+    <main class="main-content">
+        <div class="container">
+            <h1>Manage DNS</h1>
+            <button id="add-dns-account-btn" class="btn">Add DNS Provider</button>
+            <table id="dns-accounts-table" class="fixed-height-table">
+                <thead>
+                    <tr>
+                        <th>Company</th>
+                        <th>Managed Domain</th>
+                        <th>Provider</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Edit DNS Provider Account Modal -->
+    <div id="edit-dns-account-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Edit DNS Provider</h2>
+            <form id="edit-dns-account-form">
+                <input type="hidden" id="edit-dns-account-id">
+                <label for="edit-dns-account-company">Company:</label>
+                <input type="text" id="edit-dns-account-company" required>
+                <label for="edit-dns-account-domain">Managed Domain:</label>
+                <input type="text" id="edit-dns-account-domain" required>
+                <label for="edit-dns-account-provider">Provider:</label>
+                <select id="edit-dns-account-provider" required>
+                    <option value="cloudflare">Cloudflare</option>
+                    <option value="digitalocean">DigitalOcean</option>
+                </select>
+                <div id="edit-dns-credentials-fields">
+                    <!-- Fields for credentials will be dynamically inserted here -->
+                </div>
+                <button type="submit">Update Account</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add DNS Provider Account Modal -->
+    <div id="add-dns-account-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Add DNS Provider</h2>
+            <form id="add-dns-account-form">
+                <label for="dns-account-company">Company:</label>
+                <input type="text" id="dns-account-company" required>
+                <label for="dns-account-domain">Managed Domain:</label>
+                <input type="text" id="dns-account-domain" required>
+                <label for="dns-account-provider">Provider:</label>
+                <select id="dns-account-provider" required>
+                    <option value="cloudflare">Cloudflare</option>
+                    <option value="digitalocean">DigitalOcean</option>
+                </select>
+                <div id="dns-credentials-fields">
+                    <!-- Fields for credentials will be dynamically inserted here -->
+                </div>
+                <button type="button" id="test-dns-credentials-btn">Test Credentials</button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+    <div id="toast-container"></div>
+</body>
+</html>

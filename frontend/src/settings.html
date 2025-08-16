@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - CertSync</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="nav-brand">CertSync</a>
+        <ul class="nav-links">
+            <li><a href="index.html" data-link>Dashboard</a></li>
+            <li><a href="dns.html" data-link>DNS Providers</a></li>
+            <li><a href="certificates.html" data-link>Certificates</a></li>
+            <li><a href="target_systems.html" data-link>Target Systems</a></li>
+            <li><a href="deployments.html" data-link>Deployments</a></li>
+            <li><a href="logs.html" data-link>Logs</a></li>
+            <li><a href="users.html" data-link>Users</a></li>
+            <li><a href="settings.html" class="active" data-link>Settings</a></li>
+        </ul>
+        <div class="nav-user">
+            <button id="sign-out-btn" class="sign-out-btn">Sign Out</button>
+        </div>
+    </aside>
+    <main class="main-content">
+        <div class="container">
+            <h1>Settings</h1>
+            <div class="settings-container">
+                <div class="card" id="account-settings-card">
+                    <div class="card-header">
+                        <h2>Account Settings</h2>
+                    </div>
+                    <form id="account-settings-form">
+                        <p>Manage your password and account details.</p>
+                        <button type="button" id="change-password-btn-user" class="btn">Change Password</button>
+                    </form>
+                </div>
+
+                <div class="card admin-only" id="logging-settings-card">
+                    <div class="card-header">
+                        <h2>Logging Settings</h2>
+                    </div>
+                    <form id="logging-settings-form">
+                        <div class="form-group">
+                            <label for="log-level-select">Current Log Level:</label>
+                            <div class="input-group">
+                                <select id="log-level-select">
+                                    <option value="DEBUG">Debug</option>
+                                    <option value="INFO">Info</option>
+                                    <option value="WARNING">Warning</option>
+                                    <option value="ERROR">Error</option>
+                                    <option value="CRITICAL">Critical</option>
+                                </select>
+                                <button type="button" id="set-log-level-btn" class="btn">Set</button>
+                            </div>
+                            <small>Current Level: <span id="current-log-level"><span class="loading-placeholder"></span></span></small>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="card admin-only" id="admin-tools-card">
+                <div class="card-header">
+                    <h2>Admin Tools</h2>
+                </div>
+                <p>View a raw JSON list of all issued certificates in the database for auditing.</p>
+                <button id="view-all-certs-btn" class="btn">View All Certificates</button>
+            </div>
+
+            <div class="card admin-only" id="backup-settings-card">
+                <div class="card-header">
+                    <h2>Backups</h2>
+                </div>
+                <form id="backup-settings-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="backup-enabled">Automatic Backups:</label>
+                            <input type="checkbox" id="backup-enabled" class="toggle-switch">
+                        </div>
+                        <div class="form-group">
+                            <label for="backup-frequency">Frequency:</label>
+                            <select id="backup-frequency">
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="backup-time">Time:</label>
+                            <input type="time" id="backup-time">
+                        </div>
+                        <div class="form-group">
+                            <label for="backup-retention">Retention (days):</label>
+                            <input type="number" id="backup-retention" min="1" value="30">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="backup-location">Location:</label>
+                            <input type="text" id="backup-location" placeholder="/path/to/backups">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" id="save-backup-settings-btn" class="btn">Save Settings</button>
+                        <button type="button" id="backup-now-btn" class="btn secondary">Backup Now</button>
+                    </div>
+                </form>
+                <div class="backup-history">
+                    <h3>Backup History</h3>
+                    <table id="backup-history-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>File Size</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add User Modal -->
+    <div id="add-user-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2 id="user-modal-title">Add User</h2>
+            <form id="add-user-form">
+                <input type="hidden" id="user-id">
+                <label for="user-username">Username:</label>
+                <input type="text" id="user-username" required>
+                <label for="user-password">Password:</label>
+                <input type="password" id="user-password">
+                <small>Leave blank to keep current password when editing.</small>
+                <label for="user-role">Role:</label>
+                <select id="user-role" required>
+                    <option value="admin">Admin</option>
+                    <option value="technician">Technician</option>
+                    <option value="readonly">Read-Only</option>
+                </select>
+                <button type="submit" id="user-form-submit-btn">Add User</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="change-password-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2 id="change-password-modal-title">Change Password</h2>
+            <form id="change-password-form">
+                <input type="hidden" id="change-password-user-id">
+                <label for="current-password">Current Password:</label>
+                <input type="password" id="current-password">
+                <label for="new-password">New Password:</label>
+                <input type="password" id="new-password" required>
+                <label for="confirm-password">Confirm New Password:</label>
+                <input type="password" id="confirm-password" required>
+                <button type="submit">Change Password</button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+    <div id="toast-container"></div>
+
+    <!-- Add DNS Provider Account Modal -->
+    <div id="add-dns-account-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Add DNS Provider Account</h2>
+            <form id="add-dns-account-form">
+                <label for="dns-account-name">Account Name:</label>
+                <input type="text" id="dns-account-name" required>
+                <label for="dns-account-provider">Provider:</label>
+                <select id="dns-account-provider" required>
+                    <option value="cloudflare">Cloudflare</option>
+                    <option value="godaddy">GoDaddy</option>
+                    <option value="route53">Route53</option>
+                </select>
+                <div id="dns-credentials-fields">
+                    <!-- Fields for credentials will be dynamically inserted here -->
+                </div>
+                <button type="submit">Add Account</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

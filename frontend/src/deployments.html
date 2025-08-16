@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deployments - CertSync</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="nav-brand">CertSync</a>
+        <ul class="nav-links">
+            <li><a href="index.html" data-link>Dashboard</a></li>
+            <li><a href="dns.html" data-link>DNS Providers</a></li>
+            <li><a href="certificates.html" data-link>Certificates</a></li>
+            <li><a href="target_systems.html" data-link>Target Systems</a></li>
+            <li><a href="deployments.html" class="active" data-link>Deployments</a></li>
+            <li><a href="logs.html" data-link>Logs</a></li>
+            <li><a href="users.html" data-link>Users</a></li>
+            <li><a href="settings.html" data-link>Settings</a></li>
+        </ul>
+        <div class="nav-user">
+            <button id="sign-out-btn" class="sign-out-btn">Sign Out</button>
+        </div>
+    </aside>
+    <main class="main-content">
+        <div class="container">
+            <h1>Manage Deployments</h1>
+            <button id="add-deployment-btn" class="btn">Add Deployment</button>
+            <table id="deployments-table" class="fixed-height-table">
+                <thead>
+                    <tr>
+                        <th>Company</th>
+                        <th>Certificate</th>
+                        <th>Target System</th>
+                        <th>Status</th>
+                        <th>Last Deployed</th>
+                        <th>Next Renewal</th>
+                        <th>Auto-Renewal</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Add Deployment Modal -->
+    <div id="add-deployment-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Add Deployment</h2>
+            <form id="add-deployment-form">
+                <label for="deployment-company">Company:</label>
+                <select id="deployment-company" required>
+                    <option value="">Select Company</option>
+                </select>
+                <label for="deployment-certificate">Certificate:</label>
+                <select id="deployment-certificate" required disabled>
+                    <option value="">Select Certificate</option>
+                </select>
+                <label for="deployment-target-system">Target System:</label>
+                <select id="deployment-target-system" required disabled>
+                    <option value="">Select Target System</option>
+                </select>
+                <label for="deployment-auto-renewal">Enable Auto-Renewal:</label>
+                <input type="checkbox" id="deployment-auto-renewal" checked>
+                <button type="submit">Add Deployment</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- VPN Deployment Progress Modal -->
+    <div id="deployment-progress-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close-btn">&times;</span>
+            <h2>SSL VPN Certificate Deployment</h2>
+            <div id="deployment-progress-list" style="max-height: 500px; overflow-y: auto; padding: 10px; background-color: #f8f9fa; border-radius: 5px; font-family: monospace;">
+                <!-- Progress messages will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+    <div id="toast-container"></div>
+</body>
+</html>

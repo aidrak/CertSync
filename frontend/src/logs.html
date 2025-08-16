@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logs - CertSync</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="nav-brand">CertSync</a>
+        <ul class="nav-links">
+            <li><a href="index.html" data-link>Dashboard</a></li>
+            <li><a href="dns.html" data-link>DNS Providers</a></li>
+            <li><a href="certificates.html" data-link>Certificates</a></li>
+            <li><a href="target_systems.html" data-link>Target Systems</a></li>
+            <li><a href="deployments.html" data-link>Deployments</a></li>
+            <li><a href="logs.html" class="active" data-link>Logs</a></li>
+            <li><a href="users.html" data-link>Users</a></li>
+            <li><a href="settings.html" data-link>Settings</a></li>
+        </ul>
+        <div class="nav-user">
+            <button id="sign-out-btn" class="sign-out-btn">Sign Out</button>
+        </div>
+    </aside>
+    <main class="main-content">
+        <div class="container">
+            <h1>System Logs</h1>
+            <table id="logs-table" class="fixed-height-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Level</th>
+                        <th>Action</th>
+                        <th>Target</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </main>
+    <script type="module" src="js/main.js"></script>
+    <div id="toast-container"></div>
+</body>
+</html>

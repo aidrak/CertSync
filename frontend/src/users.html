@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users - CertSync</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="nav-brand">CertSync</a>
+        <ul class="nav-links">
+            <li><a href="index.html" data-link>Dashboard</a></li>
+            <li><a href="dns.html" data-link>DNS Providers</a></li>
+            <li><a href="certificates.html" data-link>Certificates</a></li>
+            <li><a href="target_systems.html" data-link>Target Systems</a></li>
+            <li><a href="deployments.html" data-link>Deployments</a></li>
+            <li><a href="logs.html" data-link>Logs</a></li>
+            <li><a href="users.html" class="active" data-link>Users</a></li>
+            <li><a href="settings.html" data-link>Settings</a></li>
+        </ul>
+        <div class="nav-user">
+            <button id="sign-out-btn" class="sign-out-btn">Sign Out</button>
+        </div>
+    </aside>
+    <main class="main-content">
+        <div class="container">
+            <h1>User Management</h1>
+            <div class="card" id="users-card">
+                <div class="card-header">
+                    <h2>Users</h2>
+                    <button id="add-user-btn" class="btn">Add User</button>
+                </div>
+                <div id="users-list" class="user-list"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add User Modal -->
+    <div id="add-user-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2 id="user-modal-title">Add User</h2>
+            <form id="add-user-form">
+                <input type="hidden" id="user-id">
+                <label for="user-username">Username:</label>
+                <input type="text" id="user-username" required>
+                <label for="user-password">Password:</label>
+                <input type="password" id="user-password">
+                <small>Leave blank to keep current password when editing.</small>
+                <label for="user-role">Role:</label>
+                <select id="user-role" required>
+                    <option value="admin">Admin</option>
+                    <option value="technician">Technician</option>
+                    <option value="readonly">Read-Only</option>
+                </select>
+                <button type="submit" id="user-form-submit-btn">Add User</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="change-password-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2 id="change-password-modal-title">Change Password</h2>
+            <form id="change-password-form">
+                <input type="hidden" id="change-password-user-id">
+                <label for="current-password">Current Password:</label>
+                <input type="password" id="current-password">
+                <label for="new-password">New Password:</label>
+                <input type="password" id="new-password" required>
+                <label for="confirm-password">Confirm New Password:</label>
+                <input type="password" id="confirm-password" required>
+                <button type="submit">Change Password</button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+    <div id="toast-container"></div>
+</body>
+</html>
