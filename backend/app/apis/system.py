@@ -130,3 +130,32 @@ def download_backup(backup_id: int, current_user: models.User = Depends(require_
     """
     # For now, just return not found. In a real implementation, serve the backup file
     raise HTTPException(status_code=404, detail="Backup file not found")
+
+@router.post("/trigger-auto-renewal")
+async def trigger_auto_renewal(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role("admin"))
+):
+    """
+    Manually trigger automatic certificate renewal check.
+    This will check all deployments with auto-renewal enabled and process any that are due.
+    """
+    from app.services.renewal_scheduler import renewal_scheduler
+    
+    try:
+        renewal_results = await renewal_scheduler.run_manual_check()
+        
+        successful_renewals = [r for r in renewal_results if r.get('success', False)]
+        failed_renewals = [r for r in renewal_results if not r.get('success', False)]
+        
+        return {
+            "message": "Manual renewal check completed",
+            "total_checked": len(renewal_results),
+            "successful": len(successful_renewals),
+            "failed": len(failed_renewals),
+            "results": renewal_results
+        }
+        
+    except Exception as e:
+        logger.error(f"Manual renewal check failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Renewal check failed: {str(e)}")

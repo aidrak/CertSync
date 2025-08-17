@@ -46,7 +46,7 @@ class LogCreate(LogBase):
 class Log(LogBase):
     id: int
     timestamp: datetime.datetime
-    user_id: Optional[int] = None
+    user: Optional[User] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -85,7 +85,7 @@ class TargetSystemBase(BaseModel):
     system_name: str = Field(..., pattern=r'^[a-zA-Z0-9.\- ]+$', max_length=100)
     system_type: TargetSystemType
     public_ip: str
-    port: int
+    management_port: int
     company: str
     admin_username: Optional[str] = None
     admin_password: Optional[str] = None
@@ -104,7 +104,7 @@ class TargetSystemUpdate(BaseModel):
     system_name: Optional[str] = Field(None, pattern=r'^[a-zA-Z0-9.\- ]+$', max_length=100)
     system_type: Optional[TargetSystemType] = None
     public_ip: Optional[str] = None
-    port: Optional[int] = None
+    management_port: Optional[int] = None
     api_key: Optional[str] = None
     company: Optional[str] = None
     admin_username: Optional[str] = None
@@ -131,6 +131,8 @@ class DeploymentCreate(DeploymentBase):
     deployment_config: Optional[str] = None
 
 class DeploymentUpdate(BaseModel):
+    certificate_id: Optional[int] = None
+    target_system_id: Optional[int] = None
     auto_renewal_enabled: Optional[bool] = None
     deployment_config: Optional[str] = None
 

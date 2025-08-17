@@ -41,6 +41,7 @@ class Log(Base):
     target = Column(String)
     message = Column(String(1000))
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user = relationship("User")
 
 class DnsProviderAccount(Base):
     __tablename__ = "dns_provider_accounts"
@@ -65,7 +66,7 @@ class TargetSystem(Base):
     system_type = Column(Enum(TargetSystemType))
     api_key = Column(String) # Encrypted
     public_ip = Column(String)
-    port = Column(Integer)
+    management_port = Column(Integer)
     admin_username = Column(String, nullable=True)
     admin_password = Column(String, nullable=True) # Encrypted
     company = Column(String, nullable=False)

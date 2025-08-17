@@ -12,22 +12,23 @@ from app.dependencies import get_current_user, get_optional_current_user
 from app.db.models import User as UserModel
 from app.schemas.schemas import User as UserSchema
 from app.services.log_streamer import log_streamer
+from sqlalchemy.orm import joinedload
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 @router.get("/", response_model=List[Log])
 def read_logs(
-    skip: int = 0, 
-    limit: int = 100, 
-    db: Session = Depends(get_db), 
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
 ):
     """
     Retrieve logs from the database.
     """
     logger.debug(f"User '{current_user.username}' reading logs with skip: {skip}, limit: {limit}")
-    logs = crud_log.get_logs(db, skip=skip, limit=limit)
+    logs = db.query(crud_log.models.Log).options(joinedload(crud_log.models.Log.user)).order_by(crud_log.models.Log.timestamp.desc()).offset(skip).limit(limit).all()
     return logs
 
 @router.post("/frontend/", status_code=201)

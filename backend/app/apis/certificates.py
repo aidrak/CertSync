@@ -16,7 +16,7 @@ from app.services.dns_providers.factory import DnsProviderFactory
 from app.services.log_streamer import log_streamer
 from app.core.config import settings
 from app.core.security import decrypt_secret
-from app.dependencies import require_role, require_admin_or_technician, get_current_user
+from app.dependencies import require_role, require_admin_or_technician, get_current_user, get_current_user_sse
 from app.db.models import UserRole, User, Certificate
 from fastapi.responses import StreamingResponse
 from jose import JWTError, jwt
@@ -26,20 +26,42 @@ logger = logging.getLogger(__name__)
 
 
 # Background task function for saving certificates
-def save_certificate_to_db(cert_data: dict, user_id: int):
+def save_certificate_to_db(cert_data: dict, user_id: int, renewal_cert_id: int = None):
     """Background task to save certificate to database"""
     db = SessionLocal()
     try:
-        logger.info(f"Background task: Saving certificate {cert_data.get('common_name')} to database")
-        
-        # Save the certificate
-        certificate = crud_certificate.create_certificate(
-            db=db,
-            common_name=cert_data['common_name'],
-            certificate_body=cert_data['certificate_body'],
-            private_key=cert_data['private_key'],
-            dns_provider_account_id=cert_data['dns_provider_account_id']
-        )
+        if renewal_cert_id:
+            logger.info(f"Background task: Renewing certificate ID {renewal_cert_id} with new data for {cert_data.get('common_name')}")
+            
+            # Update the existing certificate
+            certificate = crud_certificate.update_certificate(
+                db=db,
+                certificate_id=renewal_cert_id,
+                certificate_body=cert_data['certificate_body'],
+                private_key=cert_data['private_key']
+            )
+            
+            if not certificate:
+                raise Exception(f"Certificate with ID {renewal_cert_id} not found for renewal")
+            
+            action = "Certificate Renewed"
+            message = "Certificate successfully renewed and updated in database"
+            logger.info(f"Background task: Certificate {cert_data['common_name']} renewed successfully")
+        else:
+            logger.info(f"Background task: Saving new certificate {cert_data.get('common_name')} to database")
+            
+            # Save the certificate
+            certificate = crud_certificate.create_certificate(
+                db=db,
+                common_name=cert_data['common_name'],
+                certificate_body=cert_data['certificate_body'],
+                private_key=cert_data['private_key'],
+                dns_provider_account_id=cert_data['dns_provider_account_id']
+            )
+            
+            action = "Certificate Created"
+            message = "Certificate successfully created and saved to database"
+            logger.info(f"Background task: Certificate {cert_data['common_name']} saved successfully with ID {certificate.id}")
         
         db.commit()
         
@@ -48,17 +70,16 @@ def save_certificate_to_db(cert_data: dict, user_id: int):
             db=db,
             log=generic_schema.LogCreate(
                 level="info",
-                action="Certificate Created",
+                action=action,
                 target=f"Certificate: {cert_data['common_name']}",
-                message="Certificate successfully created and saved to database"
+                message=message
             ),
             user_id=user_id
         )
         
-        logger.info(f"Background task: Certificate {cert_data['common_name']} saved successfully with ID {certificate.id}")
-        
     except Exception as e:
-        logger.error(f"Background task: Failed to save certificate: {str(e)}")
+        error_action = "Certificate Renewal Failed" if renewal_cert_id else "Certificate Creation Failed"
+        logger.error(f"Background task: Failed to {'renew' if renewal_cert_id else 'save'} certificate: {str(e)}")
         db.rollback()
         
         # Log the error
@@ -67,9 +88,9 @@ def save_certificate_to_db(cert_data: dict, user_id: int):
                 db=db,
                 log=generic_schema.LogCreate(
                     level="error",
-                    action="Certificate Creation Failed",
+                    action=error_action,
                     target=f"Certificate: {cert_data.get('common_name', 'Unknown')}",
-                    message=f"Failed to save certificate to database: {str(e)}"
+                    message=f"Failed to {'renew' if renewal_cert_id else 'save'} certificate to database: {str(e)}"
                 ),
                 user_id=user_id
             )
@@ -80,7 +101,7 @@ def save_certificate_to_db(cert_data: dict, user_id: int):
 
 
 # Modified certificate request handler that separates streaming from DB operations
-async def handle_certificate_request_streaming(cert_request, user_id: int, background_tasks: BackgroundTasks):
+async def handle_certificate_request_streaming(cert_request, user_id: int, background_tasks: BackgroundTasks, renewal_cert_id: int = None):
     """Handle certificate request with streaming updates and background DB save"""
     
     try:
@@ -150,7 +171,7 @@ async def handle_certificate_request_streaming(cert_request, user_id: int, backg
                 }
                 
                 # Schedule background task to save to database
-                background_tasks.add_task(save_certificate_to_db, cert_data, user_id)
+                background_tasks.add_task(save_certificate_to_db, cert_data, user_id, renewal_cert_id)
                 
                 yield "data: 💾 Certificate queued for database save...\n\n"
                 await asyncio.sleep(0.1)
@@ -174,7 +195,7 @@ async def request_le_certificate_sse(
     dns_provider_name: str,
     request: Request,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(require_admin_or_technician)
+    current_user: User = Depends(require_role("technician"))
 ) -> StreamingResponse:
     """Stream certificate request progress via Server-Sent Events"""
     logger.info(f"--- SSE endpoint hit for {dns_provider_name} ---")
@@ -225,7 +246,7 @@ async def request_le_certificate_sse_get(
     domains: str,  # comma-separated
     dns_provider_account_id: int,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(require_admin_or_technician)
+    current_user: User = Depends(require_role("technician"))
 ) -> StreamingResponse:
     """Stream certificate request progress via Server-Sent Events (GET version)"""
     
@@ -261,6 +282,69 @@ async def request_le_certificate_sse_get(
     )
 
 
+@router.get("/renew-le-cert-sse/{dns_provider_name}")
+async def renew_certificate_sse_get(
+    dns_provider_name: str,
+    cert_id: int,
+    domains: str,
+    dns_provider_account_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_sse)
+):
+    """
+    SSE endpoint for certificate renewal using GET method.
+    This will overwrite the existing certificate with a new one.
+    """
+    logger.info(f"--- SSE renewal endpoint hit for {dns_provider_name} ---")
+    
+    async def event_stream():
+        try:
+            logger.info("--- Starting renewal event_stream ---")
+            
+            # Get the existing certificate to validate and get details
+            existing_cert = crud_certificate.get_certificate(db, certificate_id=cert_id)
+            if not existing_cert:
+                yield f"data: ❌ Certificate with ID {cert_id} not found\n\n"
+                return
+            
+            # Create certificate request data for renewal
+            domains_list = [d.strip() for d in domains.split(',')]
+            cert_request = cert_schema.CertificateRequest(
+                domains=domains_list,
+                dns_provider_account_id=dns_provider_account_id
+            )
+            
+            logger.info(f"Renewing certificate ID {cert_id} with request: {cert_request}")
+            
+            # Use the same streaming handler but with renewal context
+            yield f"data: 🔄 Renewing certificate for {domains_list[0]}...\n\n"
+            
+            async for message in handle_certificate_request_streaming(cert_request, int(current_user.id), background_tasks, renewal_cert_id=cert_id):
+                yield message
+                
+            logger.info("--- Finished renewal handle_certificate_request_streaming ---")
+                
+        except Exception as e:
+            logger.error(f"Error in certificate renewal SSE stream: {str(e)}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            yield f"data: ❌ Renewal Error: {str(e)}\n\n"
+    
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        }
+    )
+
+
 @router.get("/", response_model=List[cert_schema.Certificate])
 def read_certificates(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: User = Depends(require_admin_or_technician)):
     logger.debug(f"Reading certificates with skip: {skip}, limit: {limit}")
@@ -282,15 +366,27 @@ def read_certificate(cert_id: int, db: Session = Depends(get_db), current_user: 
 def delete_certificate(
     cert_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin"))
+    current_user: User = Depends(require_role("technician"))
 ):
-    logger.warning(f"Admin user '{current_user.username}' is performing a direct deletion of certificate ID {cert_id}.")
+    logger.info(f"--- Attempting to delete certificate ID: {cert_id} by user '{current_user.username}' with role '{current_user.role}' ---")
     
-    db_cert = crud_certificate.delete_certificate(db, certificate_id=cert_id)
+    db_cert = crud_certificate.get_certificate(db, certificate_id=cert_id)
     if db_cert is None:
+        logger.warning(f"Certificate with ID {cert_id} not found for deletion.")
         raise HTTPException(status_code=404, detail="Certificate not found")
     
-    db.commit()  # Commit the deletion to the database
+    # Check for associated deployments
+    if db_cert.deployments:
+        logger.warning(f"User '{current_user.username}' attempted to delete certificate ID {cert_id}, but it is tied to active deployments.")
+        raise HTTPException(status_code=400, detail="Cannot delete a certificate tied to an active deployment. Please delete the deployment and try again.")
+
+    logger.info(f"Found certificate '{db_cert.common_name}' for deletion.")
+    
+    crud_certificate.delete_certificate(db, certificate_id=cert_id)
+    logger.info("Certificate marked for deletion in the database session.")
+    
+    db.commit()
+    logger.info(f"--- Certificate ID {cert_id} successfully deleted from the database. ---")
     
     return {"message": "Certificate deleted successfully"}
 

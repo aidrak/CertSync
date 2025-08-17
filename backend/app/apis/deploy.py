@@ -6,17 +6,18 @@ from app.crud import crud_deployment
 from app.schemas import schemas
 from app.schemas.certificates import Certificate as CertificateSchema
 from app.db.database import get_db
-from app.dependencies import require_admin_or_technician
+from app.dependencies import require_role
 from app.db.models import User, DnsProviderAccount, Certificate, TargetSystem, DeploymentStatus, Deployment
 from app.db import models
 
-router = APIRouter(dependencies=[Depends(require_admin_or_technician)])
+router = APIRouter()
 
 
 @router.post("/")
 def create_deployment(
     deployment: schemas.DeploymentCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("technician"))
 ):
     db_deployment = crud_deployment.create_deployment(
         db=db,
@@ -110,7 +111,7 @@ def read_deployments(
     
     return result
 
-@router.get("/{deployment_id}", response_model=schemas.Deployment)
+@router.get("/{deployment_id}")
 def read_deployment(
     deployment_id: int,
     db: Session = Depends(get_db),
@@ -118,13 +119,50 @@ def read_deployment(
     db_deployment = crud_deployment.get_deployment(db, deployment_id=deployment_id)
     if db_deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
-    return db_deployment
+    
+    # Manually serialize to avoid schema conflicts (same as read_deployments)
+    return {
+        "id": db_deployment.id,
+        "certificate_id": db_deployment.certificate_id,
+        "target_system_id": db_deployment.target_system_id,
+        "auto_renewal_enabled": db_deployment.auto_renewal_enabled,
+        "status": db_deployment.status,
+        "created_at": db_deployment.created_at,
+        "updated_at": db_deployment.updated_at,
+        "details": db_deployment.details,
+        "last_deployed_at": db_deployment.last_deployed_at,
+        "next_renewal_date": db_deployment.next_renewal_date,
+        "deployment_config": db_deployment.deployment_config,
+        "certificate": {
+            "id": db_deployment.certificate.id,
+            "common_name": db_deployment.certificate.common_name,
+            "expires_at": db_deployment.certificate.expires_at,
+            "issued_at": db_deployment.certificate.issued_at,
+            "company": db_deployment.certificate.dns_provider_account.company if db_deployment.certificate.dns_provider_account else None,
+            "dns_provider_account": {
+                "id": db_deployment.certificate.dns_provider_account.id,
+                "company": db_deployment.certificate.dns_provider_account.company,
+                "managed_domain": db_deployment.certificate.dns_provider_account.managed_domain,
+                "provider_type": db_deployment.certificate.dns_provider_account.provider_type
+            } if db_deployment.certificate.dns_provider_account else None
+        } if db_deployment.certificate else None,
+        "target_system": {
+            "id": db_deployment.target_system.id,
+            "system_name": db_deployment.target_system.system_name,
+            "system_type": db_deployment.target_system.system_type,
+            "public_ip": db_deployment.target_system.public_ip,
+            "port": db_deployment.target_system.port,
+            "company": db_deployment.target_system.company,
+            "admin_username": db_deployment.target_system.admin_username
+        } if db_deployment.target_system else None
+    }
 
 
 @router.post("/{deployment_id}/run")
 async def run_deployment(
     deployment_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("technician"))
 ):
     from ..services.firewall_manager.factory import FirewallManagerFactory
     from ..services.firewall_manager.base import CertificateData
@@ -225,7 +263,7 @@ async def run_deployment(
 async def run_deployment_sse(
     deployment_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(require_admin_or_technician)
+    current_user: User = Depends(require_role("technician"))
 ):
     """Stream VPN certificate deployment progress via Server-Sent Events"""
     
@@ -278,8 +316,8 @@ async def run_deployment_sse(
                 deployment_logs.append(message)
                 yield f"data: {message}\n\n"
                 
-                # Check for success indicators in the message
-                if "SUCCESS" in message or "successful" in message.lower():
+                # Check for final success indicators only (not intermediate steps)
+                if "🎉 SUCCESS:" in message or "SSL VPN certificate deployment completed successfully" in message:
                     deployment_success = True
             
             # Update deployment status based on success
@@ -340,7 +378,7 @@ async def run_deployment_sse(
 async def verify_vpn_deployment_sse(
     deployment_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(require_admin_or_technician)
+    current_user: User = Depends(require_role("technician"))
 ):
     """Stream VPN certificate verification progress via Server-Sent Events"""
     
@@ -445,10 +483,129 @@ async def verify_vpn_deployment(
         
         raise HTTPException(status_code=500, detail=f"VPN verification failed: {str(e)}")
 
+@router.put("/{deployment_id}")
+def update_deployment(
+    deployment_id: int,
+    deployment: schemas.DeploymentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("technician"))
+):
+    """Update a deployment"""
+    db_deployment = crud_deployment.get_deployment(db, deployment_id=deployment_id)
+    if db_deployment is None:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    
+    # Update deployment fields
+    update_data = deployment.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_deployment, field, value)
+    
+    db.commit()
+    db.refresh(db_deployment)
+    
+    # Return manually serialized deployment (same format as read_deployment)
+    return {
+        "id": db_deployment.id,
+        "certificate_id": db_deployment.certificate_id,
+        "target_system_id": db_deployment.target_system_id,
+        "auto_renewal_enabled": db_deployment.auto_renewal_enabled,
+        "status": db_deployment.status,
+        "created_at": db_deployment.created_at,
+        "updated_at": db_deployment.updated_at,
+        "details": db_deployment.details,
+        "last_deployed_at": db_deployment.last_deployed_at,
+        "next_renewal_date": db_deployment.next_renewal_date,
+        "deployment_config": db_deployment.deployment_config,
+        "certificate": {
+            "id": db_deployment.certificate.id,
+            "common_name": db_deployment.certificate.common_name,
+            "expires_at": db_deployment.certificate.expires_at,
+            "issued_at": db_deployment.certificate.issued_at,
+            "company": db_deployment.certificate.dns_provider_account.company if db_deployment.certificate.dns_provider_account else None,
+            "dns_provider_account": {
+                "id": db_deployment.certificate.dns_provider_account.id,
+                "company": db_deployment.certificate.dns_provider_account.company,
+                "managed_domain": db_deployment.certificate.dns_provider_account.managed_domain,
+                "provider_type": db_deployment.certificate.dns_provider_account.provider_type
+            } if db_deployment.certificate.dns_provider_account else None
+        } if db_deployment.certificate else None,
+        "target_system": {
+            "id": db_deployment.target_system.id,
+            "system_name": db_deployment.target_system.system_name,
+            "system_type": db_deployment.target_system.system_type,
+            "public_ip": db_deployment.target_system.public_ip,
+            "port": db_deployment.target_system.port,
+            "company": db_deployment.target_system.company,
+            "admin_username": db_deployment.target_system.admin_username
+        } if db_deployment.target_system else None
+    }
+
+@router.post("/{deployment_id}/renew")
+async def renew_certificate(
+    deployment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("technician"))
+):
+    """Manually trigger certificate renewal for a deployment"""
+    db_deployment = crud_deployment.get_deployment(db, deployment_id=deployment_id)
+    if db_deployment is None:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    
+    try:
+        # Import the auto renewal service
+        from app.services.auto_renewal_service import auto_renewal_service
+        
+        # Check target system type and provide appropriate message
+        target_system = db_deployment.target_system
+        certificate = db_deployment.certificate
+        
+        if target_system.system_type.value == "sonicwall":
+            # For SonicWall, perform full renewal and deployment
+            result = await auto_renewal_service.renew_certificate_and_deploy(db, db_deployment)
+            
+            if result['success']:
+                return {
+                    "message": f"Certificate renewal and deployment completed successfully for {certificate.common_name}",
+                    "deployment_id": deployment_id,
+                    "certificate_name": certificate.common_name,
+                    "target_system": target_system.system_name,
+                    "logs": result.get('renewal_logs', []) + result.get('deployment_logs', [])
+                }
+            else:
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Certificate renewal failed: {result.get('error', 'Unknown error')}"
+                )
+        else:
+            # For other systems, just renew the certificate (placeholder implementation)
+            renewal_result = await auto_renewal_service.renew_certificate_cloudflare(db, certificate)
+            
+            if renewal_result['success']:
+                return {
+                    "message": f"Certificate renewed successfully for {certificate.common_name}. Manual deployment required for {target_system.system_type.value} systems.",
+                    "deployment_id": deployment_id,
+                    "certificate_name": certificate.common_name,
+                    "target_system": target_system.system_name,
+                    "logs": renewal_result.get('logs', []),
+                    "note": f"Automatic deployment not yet implemented for {target_system.system_type.value}. Please deploy manually."
+                }
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Certificate renewal failed: {renewal_result.get('error', 'Unknown error')}"
+                )
+                
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Manual renewal for deployment {deployment_id} failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Certificate renewal failed: {str(e)}")
+
 @router.delete("/{deployment_id}")
 async def delete_deployment(
     deployment_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("technician"))
 ):
     """Delete a deployment"""
     db_deployment = crud_deployment.get_deployment(db, deployment_id=deployment_id)

@@ -11,25 +11,25 @@ from ..base import FirewallBase as FirewallManager, CertificateData
 logger = logging.getLogger(__name__)
 
 class SonicWallManager(FirewallManager):
-    def __init__(self, hostname, username, password, port=443, ftp_config: Dict[str, Any] = None, **kwargs):
+    def __init__(self, hostname, username, password, management_port=443, ftp_config: Dict[str, Any] | None = None, **kwargs):
         self.hostname = hostname
         self.username = username
         self.password = password
-        self.port = port
+        self.management_port = management_port
         
         # Construct a settings object for the manager and validator
         self.settings = type('obj', (object,), {
             'public_ip': self.hostname,
             'admin_username': self.username,
             'api_key': self.password,
-            'port': self.port
+            'port': self.management_port
         })()
         self.cert_manager = SonicWallCertManager(self.settings)
         self.deploy_manager = SonicWallDeployManager(
             hostname=hostname,
             username=username,
             password=password,
-            port=port,
+            management_port=management_port,
             ftp_config=ftp_config
         )
 
@@ -41,7 +41,7 @@ class SonicWallManager(FirewallManager):
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
-            async for message in validator.run_complete_test(session):
+            async for message in validator.run_complete_test():
                 yield message
         logger.info(f"SonicWall connectivity test for {self.hostname} completed.")
 
@@ -83,6 +83,7 @@ class SonicWallManager(FirewallManager):
         """Deploy certificate to SonicWall SSL VPN service."""
         async for message in self.deploy_manager.deploy_vpn_certificate(cert_data):
             yield message
+
 
     async def verify_vpn_deployment(self, cert_name: str) -> AsyncIterator[str]:
         """Verify the VPN certificate is correctly deployed."""

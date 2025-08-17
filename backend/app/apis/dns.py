@@ -7,7 +7,7 @@ import logging
 from app.db import models
 from app.schemas import schemas as dns_schemas, dns as dns_schemas_dns
 from app.crud import crud_dns
-from app.dependencies import get_db
+from app.dependencies import get_db, require_role
 from app.core.security import decrypt_secret
 from app.services.dns_providers.factory import DnsProviderFactory
 
@@ -15,7 +15,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 @router.post("/dns-provider-accounts/", response_model=dns_schemas_dns.DnsProviderAccount)
-def create_dns_provider_account(account: dns_schemas_dns.DnsProviderAccountCreate, db: Session = Depends(get_db)):
+def create_dns_provider_account(account: dns_schemas_dns.DnsProviderAccountCreate, db: Session = Depends(get_db), current_user: models.User = Depends(require_role("technician"))):
     try:
         # Validate input data
         if not account.managed_domain or not account.credentials or not account.company:
@@ -85,7 +85,7 @@ def read_dns_provider_accounts(skip: int = 0, limit: int = 100, db: Session = De
         raise HTTPException(status_code=500, detail="Failed to fetch DNS accounts")
 
 @router.put("/dns-provider-accounts/{account_id}", response_model=dns_schemas_dns.DnsProviderAccount)
-def update_dns_provider_account(account_id: int, account: dns_schemas_dns.DnsProviderAccountUpdate, db: Session = Depends(get_db)):
+def update_dns_provider_account(account_id: int, account: dns_schemas_dns.DnsProviderAccountUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(require_role("technician"))):
     try:
         db_account = crud_dns.update_dns_provider_account(db=db, account_id=account_id, account=account)
         if db_account is None:
@@ -110,7 +110,7 @@ def update_dns_provider_account(account_id: int, account: dns_schemas_dns.DnsPro
         raise HTTPException(status_code=500, detail="Failed to update DNS account")
 
 @router.delete("/dns-provider-accounts/{account_id}", response_model=dns_schemas_dns.DnsProviderAccount)
-def delete_dns_provider_account(account_id: int, db: Session = Depends(get_db)):
+def delete_dns_provider_account(account_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(require_role("technician"))):
     try:
         db_account = crud_dns.delete_dns_provider_account(db=db, account_id=account_id)
         if db_account is None:

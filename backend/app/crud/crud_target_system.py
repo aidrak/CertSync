@@ -24,7 +24,7 @@ def create_target_system(db: Session, target_system: schemas.TargetSystemCreate)
         system_type=target_system.system_type,
         api_key=encrypted_api_key,
         public_ip=target_system.public_ip,
-        port=target_system.port,
+        management_port=target_system.management_port,
         company=target_system.company,
         admin_username=target_system.admin_username,
         admin_password=encrypted_admin_password
@@ -56,6 +56,8 @@ def update_target_system(db: Session, target_system_id: int, target_system: sche
 def delete_target_system(db: Session, target_system_id: int):
     db_target_system = db.query(models.TargetSystem).filter(models.TargetSystem.id == target_system_id).first()
     if db_target_system:
+        if db_target_system.deployments:
+            raise HTTPException(status_code=400, detail="Cannot delete target system with active deployments.")
         db.delete(db_target_system)
         db.commit()
     return db_target_system

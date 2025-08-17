@@ -10,7 +10,7 @@ from .db import models
 from .db.database import engine, SessionLocal
 from .apis import target_systems, certificates, auth, logs, system, dns, deploy
 from .crud import crud_user, crud_system_setting
-from .schemas.schemas import UserCreate, SystemSettingCreate
+from .schemas.schemas import UserCreate, SystemSettingCreate, UserRole
 from .core.config import settings
 from .core.exceptions import CertSyncError
 from sqlalchemy.sql import text
@@ -70,30 +70,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from .db.models import UserRole
-
-def create_default_admin():
-    db = SessionLocal()
-    logger.debug("Attempting to create default admin user.")
-    try:
-        user = crud_user.get_user_by_username(db, username=settings.DEFAULT_ADMIN_USER)
-        if not user:
-            logger.info("Default admin user not found, creating...")
-            user_in = UserCreate(
-                username=settings.DEFAULT_ADMIN_USER,
-                password=settings.DEFAULT_ADMIN_PASSWORD, # Pass plain-text, crud_user handles hash
-                role=UserRole.admin
-            )
-            crud_user.create_user(db, user=user_in) # crud_user.create_user commits internally
-            logger.info("Default admin user created.")
-        else:
-            logger.info("Default admin user already exists.")
-    except Exception as e:
-        logger.error(f"Error creating default admin user: {e}", exc_info=True)
-        db.rollback()
-    finally:
-        db.close()
-
 @app.on_event("startup")
 async def startup_event():
     logger.info(f"FastAPI app attempting to connect to DATABASE_URL: {settings.DATABASE_URL}")
@@ -131,6 +107,29 @@ async def startup_event():
 
     # 3. Create the default admin user.
     create_default_admin()
+    
+    # 4. Start the automatic certificate renewal scheduler
+    from app.services.renewal_scheduler import renewal_scheduler
+    renewal_scheduler.start()
+
+def create_default_admin():
+    db = SessionLocal()
+    try:
+        # Check if the admin user already exists
+        admin_user = crud_user.get_user_by_username(db, username=settings.DEFAULT_ADMIN_USER)
+        if not admin_user:
+            # Create the admin user if it doesn't exist
+            user_in = UserCreate(
+                username=settings.DEFAULT_ADMIN_USER,
+                password=settings.DEFAULT_ADMIN_PASSWORD,
+                role=UserRole.admin
+            )
+            crud_user.create_user(db=db, user=user_in)
+            logger.info(f"Default admin user '{settings.DEFAULT_ADMIN_USER}' created.")
+        else:
+            logger.info(f"Default admin user '{settings.DEFAULT_ADMIN_USER}' already exists.")
+    finally:
+        db.close()
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(target_systems.router, prefix="/api/v1/target-systems", tags=["target-systems"])

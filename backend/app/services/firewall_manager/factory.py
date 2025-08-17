@@ -23,7 +23,7 @@ class FirewallManagerFactory:
             return FortiGateManager(
                 hostname=firewall_settings.public_ip,
                 api_key=firewall_settings.api_key,
-                management_port=firewall_settings.port
+                management_port=firewall_settings.management_port
             )
         elif firewall_settings.system_type == TargetSystemType.panos:
             return PanosManager(
@@ -33,6 +33,7 @@ class FirewallManagerFactory:
         elif firewall_settings.system_type == TargetSystemType.sonicwall:
             # Use centralized FTP configuration from environment variables
             from ...core.config import settings
+            from ...core.security import decrypt_secret
             ftp_config = {
                 'host': settings.FTP_HOST,
                 'port': settings.FTP_PORT,
@@ -44,8 +45,8 @@ class FirewallManagerFactory:
             return SonicWallManager(
                 hostname=firewall_settings.public_ip,
                 username=firewall_settings.admin_username,
-                password=firewall_settings.api_key,
-                port=firewall_settings.port,
+                password=decrypt_secret(firewall_settings.admin_password),
+                port=firewall_settings.management_port,
                 ftp_config=ftp_config
             )
         else:

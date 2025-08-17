@@ -61,7 +61,7 @@ def get_optional_current_user(request: Request, db: Session = Depends(get_db)) -
     except JWTError:
         return None
 
-def require_role(role: str):
+def require_role(role: str, allow_readonly: bool = False):
     """
     This is a more flexible role checker that understands hierarchy.
     For example, an admin can do everything a technician can.
@@ -82,6 +82,13 @@ def require_role(role: str):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"This action requires at least '{role}' privileges."
             )
+        
+        if not allow_readonly and current_user.role == UserRole.readonly:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Read-only users cannot perform this action."
+            )
+            
         return current_user
     return role_checker
 

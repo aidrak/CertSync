@@ -1,0 +1,10 @@
+import alembic.config
+import os
+
+def run_alembic():
+    alembic_cfg = alembic.config.Config("alembic.ini")
+    alembic.config.main(argv=['--raiseerr', 'revision', '--autogenerate', '-m', 'Rename port to management_port'])
+
+if __name__ == '__main__':
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    run_alembic()

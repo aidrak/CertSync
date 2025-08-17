@@ -6,6 +6,31 @@ from cryptography.hazmat.primitives.serialization import pkcs12, load_pem_privat
 from cryptography.hazmat.primitives import serialization
 from cryptography import x509
 import re
+import logging
+
+logger = logging.getLogger(__name__)
+
+def parse_certificate_expiration(certificate_body: str) -> datetime:
+    """
+    Parse the expiration date from a PEM-formatted certificate.
+    Returns the actual expiration datetime from the certificate.
+    """
+    try:
+        # Load the certificate from PEM format
+        cert = x509.load_pem_x509_certificate(certificate_body.encode('utf-8'))
+        
+        # Get the expiration date (not_valid_after)
+        expires_at = cert.not_valid_after
+        
+        logger.info(f"Certificate expires at: {expires_at}")
+        return expires_at
+        
+    except Exception as e:
+        logger.error(f"Failed to parse certificate expiration: {e}")
+        # Fallback to 90 days from now if parsing fails
+        fallback_date = datetime.utcnow() + timedelta(days=90)
+        logger.warning(f"Using fallback expiration date: {fallback_date}")
+        return fallback_date
 
 def get_certificate(db: Session, certificate_id: int):
     return db.query(models.Certificate).filter(models.Certificate.id == certificate_id).first()
@@ -22,8 +47,8 @@ def create_certificate(db: Session, common_name: str, certificate_body: str, pri
     logger.info(f"🔍 DEBUG: Certificate body starts with: {certificate_body[:50]}...")
     logger.info(f"🔍 DEBUG: Private key starts with: {private_key[:50]}...")
     
-    # In a real scenario, you'd parse the cert body to get the real expiration
-    expires_at = datetime.utcnow() + timedelta(days=90)
+    # Parse the actual expiration date from the certificate
+    expires_at = parse_certificate_expiration(certificate_body)
     logger.info(f"Setting expiration to: {expires_at}")
     
     try:
@@ -50,6 +75,48 @@ def create_certificate(db: Session, common_name: str, certificate_body: str, pri
         return db_cert
     except Exception as e:
         logger.error(f"Database operation failed: {e}")
+        db.rollback()
+        raise
+
+
+def update_certificate(db: Session, certificate_id: int, certificate_body: str, private_key: str):
+    """Update an existing certificate with new certificate body and private key (for renewal)"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"--- crud_certificate.update_certificate called for certificate_id={certificate_id} ---")
+    
+    db_cert = get_certificate(db, certificate_id)
+    if not db_cert:
+        logger.error(f"Certificate with ID {certificate_id} not found")
+        return None
+    
+    # Parse the actual expiration date from the new certificate
+    expires_at = parse_certificate_expiration(certificate_body)
+    logger.info(f"Updating expiration to: {expires_at}")
+    
+    try:
+        encrypted_private_key = encrypt_secret(private_key)
+        logger.info("Private key encrypted successfully for renewal")
+    except Exception as e:
+        logger.error(f"Failed to encrypt private key during renewal: {e}")
+        raise
+    
+    try:
+        # Update the certificate fields
+        db_cert.certificate_body = certificate_body
+        db_cert.private_key = encrypted_private_key
+        db_cert.expires_at = expires_at
+        db_cert.issued_at = datetime.utcnow()  # Update issued date
+        
+        # Update renewal dates for all deployments using this certificate
+        from .crud_deployment import update_deployment_renewal_dates_for_certificate
+        update_deployment_renewal_dates_for_certificate(db, certificate_id)
+        
+        logger.info(f"Certificate {db_cert.common_name} updated successfully for renewal")
+        return db_cert
+    except Exception as e:
+        logger.error(f"Database operation failed during certificate renewal: {e}")
         db.rollback()
         raise
 

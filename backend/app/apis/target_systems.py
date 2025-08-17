@@ -15,9 +15,9 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 @router.post("/", response_model=schemas.TargetSystem)
-def create_target_system(target_system: schemas.TargetSystemCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin_or_technician)):
+def create_target_system(target_system: schemas.TargetSystemCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role("technician"))):
     logger.debug(f"Attempting to create target_system with name: {target_system.system_name}")
-    db_target_system = crud_target_system.get_target_system_by_name(db, system_name=target_system.system_name, system_type=target_system.system_type)
+    db_target_system = crud_target_system.get_target_system_by_name(db, system_name=target_system.system_name, system_type=target_system.system_type.value)
     if db_target_system:
         logger.warning(f"Target system with name {target_system.system_name} already exists.")
         raise ConflictError("Target system name already registered")
@@ -54,7 +54,7 @@ def read_target_system(target_system_id: int, db: Session = Depends(get_db), cur
     return db_target_system
 
 @router.put("/{target_system_id}", response_model=schemas.TargetSystem)
-def update_target_system(target_system_id: int, target_system: schemas.TargetSystemUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_admin_or_technician)):
+def update_target_system(target_system_id: int, target_system: schemas.TargetSystemUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_role("technician"))):
     logger.debug(f"Attempting to update target system with ID: {target_system_id}")
     db_target_system = crud_target_system.update_target_system(db, target_system_id=target_system_id, target_system=target_system)
     if db_target_system is None:
@@ -76,7 +76,7 @@ def update_target_system(target_system_id: int, target_system: schemas.TargetSys
     return db_target_system
 
 @router.delete("/{target_system_id}")
-def delete_target_system(target_system_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin_or_technician)):
+def delete_target_system(target_system_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role("technician"))):
     logger.debug(f"Attempting to delete target system with ID: {target_system_id}")
     db_target_system = crud_target_system.delete_target_system(db, target_system_id=target_system_id)
     if db_target_system is None:
@@ -106,7 +106,7 @@ async def test_connection_sse(
     system_name: str,
     company: str,
     public_ip: str,
-    port: int,
+    management_port: int,
     admin_username: Optional[str] = None,
     admin_password: Optional[str] = None,
     api_key: Optional[str] = None,
@@ -135,8 +135,8 @@ async def test_connection_sse(
                 name=system_name,
                 system_type=firewall_type,
                 public_ip=public_ip,
-                port=port,
-                management_port=port,
+                port=management_port,
+                management_port=management_port,
                 admin_username=admin_username,
                 api_key=password,
                 company=company,
