@@ -1,6 +1,6 @@
 // Simple, professional MPA approach - no SPA routing chaos
 import { API_URL } from './config.js';
-import { showToast, decodeToken } from './utils.js';
+import { showToast, decodeToken, initActivityTracker } from './utils.js';
 import { initializePage, checkAuthentication } from '../shared/page-init.js';
 import { sendLog } from './api.js';
 
@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
 
     if (loginForm) {
+        console.log('Login form found, attaching event listener.');
         // Login page - simple form handling
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -92,5 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Protected pages - simple, clean initialization
         checkAuthentication();
         initializePage();
+        initActivityTracker();
     }
 });

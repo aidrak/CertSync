@@ -1,6 +1,6 @@
 import { API_URL } from '../config.js';
 import { safeFetch, showToast, safeEventSource } from '../utils.js';
-import { showModal, hideModal, createTestProgressDisplay, updateTestStep, renderCertificatesTable, clearTestProgressDisplay } from '../ui.js';
+import { showModal, hideModal, createTestProgressDisplay, updateTestStep, renderCertificatesTable, clearTestProgressDisplay, showConfirmationModal } from '../ui.js';
 import { fetchCertificates } from '../api.js';
 
 let currentCertEventSource = null;
@@ -127,7 +127,8 @@ function setupCertificateRequestForm() {
         
         const params = new URLSearchParams({
             domains: certRequest.domains.join(','),
-            dns_provider_account_id: certRequest.dns_provider_account_id
+            dns_provider_account_id: certRequest.dns_provider_account_id,
+            token: localStorage.getItem('accessToken')
         });
         
         const getEndpoint = `${sseEndpoint}?${params}`;
@@ -193,15 +194,199 @@ function setupCertificateRequestForm() {
 
 async function deleteCertificate(certId) {
     try {
-        const response = await safeFetch(`${API_URL}/certificates/${certId}`, {
-            method: 'DELETE'
+        const response = await fetch(`${API_URL}/certificates/${certId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
         });
-        showToast('Certificate deleted successfully!', 'success');
-        await fetchCertificates(); // Refresh the table
+
+        if (response.ok) {
+            showToast('Certificate deleted successfully!', 'success');
+            await fetchCertificates(); // Refresh the table
+        } else {
+            const errorData = await response.json();
+            showToast(errorData.detail || 'Failed to delete certificate.', 'error');
+        }
     } catch (error) {
         console.error('Delete failed:', error);
-        showToast('Failed to delete certificate: ' + error.message, 'error');
+        showToast('An unexpected error occurred.', 'error');
     }
+}
+
+function showRenewalConfirmModal(certId, commonName, dnsProviderId) {
+    // Create confirmation modal
+    const confirmModal = document.createElement('div');
+    confirmModal.className = 'modal';
+    confirmModal.innerHTML = `
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Confirm Certificate Renewal</h2>
+            <p>Are you sure you want to renew the certificate for <strong>${commonName}</strong>?</p>
+            <p>This will overwrite the existing certificate with a new one.</p>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="cancel-renewal-btn" style="margin-right: 10px;">Cancel</button>
+                <button class="confirm-renewal-btn">Yes, Renew Certificate</button>
+            </div>
+        </div>
+    `;
+    
+    // Add event listeners
+    confirmModal.querySelector('.close-btn').addEventListener('click', () => {
+        hideModal(confirmModal);
+        confirmModal.remove();
+    });
+    
+    confirmModal.querySelector('.cancel-renewal-btn').addEventListener('click', () => {
+        hideModal(confirmModal);
+        confirmModal.remove();
+    });
+    
+    confirmModal.querySelector('.confirm-renewal-btn').addEventListener('click', () => {
+        hideModal(confirmModal);
+        confirmModal.remove();
+        renewCertificate(certId, commonName, dnsProviderId);
+    });
+    
+    // Show the modal
+    document.body.appendChild(confirmModal);
+    showModal(confirmModal);
+}
+
+async function renewCertificate(certId, commonName, dnsProviderId) {
+    try {
+        // First get the DNS provider to determine the type
+        const dnsProviders = await safeFetch(`${API_URL}/dns/dns-provider-accounts/`);
+        const provider = dnsProviders.find(p => p.id == dnsProviderId);
+        
+        if (!provider) {
+            showToast('Could not find DNS provider for this certificate.', 'error');
+            return;
+        }
+
+        // Create a renewal modal similar to the request modal
+        const renewalModal = createRenewalModal(certId, commonName, provider);
+        document.body.appendChild(renewalModal);
+        showModal(renewalModal);
+
+        // Set up the renewal process with SSE
+        const dnsProviderName = provider.provider_type.toLowerCase();
+        const sseEndpoint = `${API_URL}/certificates/renew-le-cert-sse/${dnsProviderName}`;
+        
+        const params = new URLSearchParams({
+            cert_id: certId,
+            domains: commonName,
+            dns_provider_account_id: dnsProviderId,
+            token: localStorage.getItem('accessToken')
+        });
+        
+        const getEndpoint = `${sseEndpoint}?${params}`;
+        
+        createTestProgressDisplay(renewalModal.id);
+        updateTestStep('🔄 Starting certificate renewal...', 'running');
+        
+        currentCertEventSource = safeEventSource(getEndpoint);
+
+        currentCertEventSource.onmessage = function(event) {
+            const rawData = event.data;
+            const log = rawData.startsWith('data:') ? rawData.substring(5).trim() : rawData.trim();
+
+            if (!log) return;
+
+            let status = 'info';
+            if (log.includes('✅') || log.includes('🎉')) status = 'success';
+            if (log.includes('❌')) status = 'error';
+            if (log.includes('⚠️') || log.includes('🔍 DEBUG')) status = 'warning';
+            
+            updateTestStep(log, status);
+
+            if (log.includes('🎉 Certificate request completed successfully!')) {
+                updateTestStep('✅ Certificate renewed and saved!', 'success');
+                
+                const closeBtn = renewalModal.querySelector('.close-renewal-btn');
+                if (closeBtn) {
+                    closeBtn.textContent = 'Close';
+                    closeBtn.disabled = false;
+                }
+                
+                // Refresh certificates table immediately
+                fetchCertificates();
+                
+                currentCertEventSource.close();
+                currentCertEventSource = null;
+                showToast('Certificate renewed successfully!', 'success');
+            }
+            
+            if (log.includes('❌') && log.includes('Error')) {
+                const closeBtn = renewalModal.querySelector('.close-renewal-btn');
+                if (closeBtn) {
+                    closeBtn.textContent = 'Close';
+                    closeBtn.disabled = false;
+                }
+                showToast('Certificate renewal failed. Check the logs for details.', 'error');
+            }
+        };
+
+        currentCertEventSource.onerror = function(error) {
+            console.error('EventSource failed:', error);
+            updateTestStep('❌ Connection failed', 'error');
+            const closeBtn = renewalModal.querySelector('.close-renewal-btn');
+            if (closeBtn) {
+                closeBtn.textContent = 'Close';
+                closeBtn.disabled = false;
+            }
+            showToast('Connection to server failed', 'error');
+        };
+
+        currentCertEventSource.onopen = function(event) {
+            console.log('SSE connection opened for renewal');
+            updateTestStep('🔗 Connected to server', 'info');
+        };
+
+    } catch (error) {
+        console.error('Renewal failed:', error);
+        showToast('An unexpected error occurred during renewal.', 'error');
+    }
+}
+
+function createRenewalModal(certId, commonName, provider) {
+    const modalId = `renewal-modal-${certId}`;
+    const modal = document.createElement('div');
+    modal.id = modalId;
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Renew Certificate</h2>
+            <form class="renewal-form">
+                <p><strong>Certificate:</strong> ${commonName}</p>
+                <p><strong>DNS Provider:</strong> ${provider.company} (${provider.managed_domain})</p>
+                <p>This will overwrite the existing certificate with a new one.</p>
+                <button type="button" class="close-renewal-btn" disabled>Renewing...</button>
+            </form>
+        </div>
+    `;
+    
+    // Add close functionality
+    modal.querySelector('.close-btn').addEventListener('click', () => {
+        if (currentCertEventSource) {
+            currentCertEventSource.close();
+            currentCertEventSource = null;
+        }
+        hideModal(modal);
+        modal.remove();
+    });
+    
+    modal.querySelector('.close-renewal-btn').addEventListener('click', () => {
+        if (currentCertEventSource) {
+            currentCertEventSource.close();
+            currentCertEventSource = null;
+        }
+        hideModal(modal);
+        modal.remove();
+    });
+    
+    return modal;
 }
 
 let downloadHandlerInitialized = false;
@@ -220,9 +405,17 @@ function setupDownloadCertificateHandler() {
         
         if (e.target.classList.contains('delete-cert-btn')) {
             const certId = e.target.dataset.id;
-            if (confirm('Are you sure you want to delete this certificate?')) {
+            showConfirmationModal('Are you sure you want to delete this certificate?', () => {
                 deleteCertificate(certId);
-            }
+            });
+        }
+        
+        if (e.target.classList.contains('renew-cert-btn')) {
+            const certId = e.target.dataset.id;
+            const commonName = e.target.dataset.commonName;
+            const dnsProviderId = e.target.dataset.dnsProviderId;
+            
+            showRenewalConfirmModal(certId, commonName, dnsProviderId);
         }
     });
 
@@ -262,7 +455,7 @@ function setupDownloadCertificateHandler() {
                 if (contentDisposition) {
                     const filenameMatch = contentDisposition.match(/filename="(.+)"/);
                     if (filenameMatch && filenameMatch.length > 1) {
-                        filename = filenameMatch[1];
+                        filename = filenameMatch;
                     }
                 }
                 a.download = filename;

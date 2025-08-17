@@ -260,6 +260,15 @@ button:hover, .btn:hover {
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
 
+.modal-content.align-left {
+    left: 250px; /* Width of the sidebar */
+    top: 0;
+    transform: none;
+    height: 100%;
+    border-radius: 0;
+    overflow-y: auto;
+}
+
 .modal-content.large-flex {
     max-width: 900px;
     width: 95%;
@@ -684,4 +693,39 @@ form button {
 #account-settings-form .btn {
     width: fit-content;
     align-self: flex-start;
+}
+
+/* Read-only user restrictions */
+.readonly .readonly-hide {
+    display: none !important;
+}
+
+.readonly .readonly-disable {
+    pointer-events: none !important;
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+}
+
+.confirmation-buttons {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.confirmation-buttons button {
+    margin-left: 10px;
+    padding: 10px 20px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+}
+
+#confirm-btn {
+    background-color: #dc3545;
+    color: white;
+}
+
+#cancel-btn {
+    background-color: #6c757d;
+    color: white;
 }

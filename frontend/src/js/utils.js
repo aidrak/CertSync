@@ -312,3 +312,32 @@ export function loadContentInstantly(containerId, content) {
     container.innerHTML = content;
     container.classList.add('instant-load');
 }
+
+// --- User Activity Timeout ---
+const INACTIVITY_TIMEOUT = 60 * 60 * 1000; // 60 minutes
+
+function checkActivity() {
+    const lastActivity = localStorage.getItem('lastActivity');
+    if (lastActivity && (Date.now() - lastActivity > INACTIVITY_TIMEOUT)) {
+        logoutUser();
+    }
+}
+
+export function resetActivityTimer() {
+    localStorage.setItem('lastActivity', Date.now());
+}
+
+export function initActivityTracker() {
+    resetActivityTimer();
+    window.addEventListener('mousemove', resetActivityTimer);
+    window.addEventListener('keydown', resetActivityTimer);
+    window.addEventListener('click', resetActivityTimer);
+    setInterval(checkActivity, 5000); // Check every 5 seconds
+}
+
+export function logoutUser() {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('lastActivity');
+    window.location.href = 'login.html';
+}

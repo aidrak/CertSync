@@ -16,7 +16,6 @@
             <li><a href="target_systems.html" data-link>Target Systems</a></li>
             <li><a href="deployments.html" class="active" data-link>Deployments</a></li>
             <li><a href="logs.html" data-link>Logs</a></li>
-            <li><a href="users.html" data-link>Users</a></li>
             <li><a href="settings.html" data-link>Settings</a></li>
         </ul>
         <div class="nav-user">
@@ -26,7 +25,7 @@
     <main class="main-content">
         <div class="container">
             <h1>Manage Deployments</h1>
-            <button id="add-deployment-btn" class="btn">Add Deployment</button>
+            <button id="add-deployment-btn" class="btn readonly-hide">Add Deployment</button>
             <table id="deployments-table" class="fixed-height-table">
                 <thead>
                     <tr>
@@ -34,7 +33,7 @@
                         <th>Certificate</th>
                         <th>Target System</th>
                         <th>Status</th>
-                        <th>Last Deployed</th>
+                        <th>Expiration Date</th>
                         <th>Next Renewal</th>
                         <th>Auto-Renewal</th>
                         <th>Actions</th>
@@ -63,9 +62,35 @@
                 <select id="deployment-target-system" required disabled>
                     <option value="">Select Target System</option>
                 </select>
-                <label for="deployment-auto-renewal">Enable Auto-Renewal:</label>
-                <input type="checkbox" id="deployment-auto-renewal" checked>
-                <button type="submit">Add Deployment</button>
+                <label for="deployment-auto-renewal">Auto-Renewal:</label>
+                <input type="checkbox" id="deployment-auto-renewal" class="toggle-switch" checked>
+                <button type="submit" id="save-deployment-btn">Save Deployment</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Deployment Modal -->
+    <div id="edit-deployment-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Edit Deployment</h2>
+            <form id="edit-deployment-form">
+                <input type="hidden" id="edit-deployment-id">
+                <label for="edit-deployment-company">Company:</label>
+                <select id="edit-deployment-company" required>
+                    <option value="">Select Company</option>
+                </select>
+                <label for="edit-deployment-certificate">Certificate:</label>
+                <select id="edit-deployment-certificate" required disabled>
+                    <option value="">Select Certificate</option>
+                </select>
+                <label for="edit-deployment-target-system">Target System:</label>
+                <select id="edit-deployment-target-system" required disabled>
+                    <option value="">Select Target System</option>
+                </select>
+                <label for="edit-deployment-auto-renewal">Auto-Renewal:</label>
+                <input type="checkbox" id="edit-deployment-auto-renewal" class="toggle-switch">
+                <button type="submit" id="update-deployment-btn">Update Deployment</button>
             </form>
         </div>
     </div>

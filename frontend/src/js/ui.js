@@ -55,6 +55,32 @@ export function hideModal(modal) {
         }
     }
 }
+export function showConfirmationModal(message, onConfirm) {
+    const modal = document.getElementById('confirmation-modal');
+    const messageElement = document.getElementById('confirmation-message');
+    const confirmBtn = document.getElementById('confirm-btn');
+    const cancelBtn = document.getElementById('cancel-btn');
+
+    messageElement.textContent = message;
+
+    const confirmHandler = () => {
+        onConfirm();
+        hideModal(modal);
+        confirmBtn.removeEventListener('click', confirmHandler);
+        cancelBtn.removeEventListener('click', cancelHandler);
+    };
+
+    const cancelHandler = () => {
+        hideModal(modal);
+        confirmBtn.removeEventListener('click', confirmHandler);
+        cancelBtn.removeEventListener('click', cancelHandler);
+    };
+
+    confirmBtn.addEventListener('click', confirmHandler);
+    cancelBtn.addEventListener('click', cancelHandler);
+
+    showModal(modal);
+}
 
 function resetRequestCertForm() {
     const form = document.getElementById('request-cert-form');
@@ -183,7 +209,24 @@ export function renderCertificatesTable(certificates, dnsProviders) {
         return;
     }
 
-    certificates.forEach(cert => {
+    // Sort certificates: first by company A-Z, then by common name A-Z
+    const sortedCertificates = [...certificates].sort((a, b) => {
+        const dnsProviderA = dnsProviders.find(p => p.id === a.dns_provider_account_id);
+        const dnsProviderB = dnsProviders.find(p => p.id === b.dns_provider_account_id);
+        const companyA = (dnsProviderA ? dnsProviderA.company : 'N/A').toLowerCase();
+        const companyB = (dnsProviderB ? dnsProviderB.company : 'N/A').toLowerCase();
+        
+        // First sort by company
+        const companyCompare = companyA.localeCompare(companyB);
+        if (companyCompare !== 0) {
+            return companyCompare;
+        }
+        
+        // If companies are the same, sort by common name
+        return a.common_name.toLowerCase().localeCompare(b.common_name.toLowerCase());
+    });
+
+    sortedCertificates.forEach(cert => {
         const dnsProvider = dnsProviders.find(p => p.id === cert.dns_provider_account_id);
         const companyName = dnsProvider ? dnsProvider.company : 'N/A';
         const domain = dnsProvider ? dnsProvider.managed_domain : 'N/A';
@@ -198,7 +241,87 @@ export function renderCertificatesTable(certificates, dnsProviders) {
                 <td class="${isExpiringSoon ? 'expiring-soon' : ''}">${expires}</td>
                 <td>
                     <button class="download-cert-btn" data-id="${cert.id}">Download</button>
-                    <button class="delete-cert-btn" data-id="${cert.id}">Delete</button>
+                    <button class="renew-cert-btn readonly-hide" data-id="${cert.id}" data-common-name="${cert.common_name}" data-dns-provider-id="${cert.dns_provider_account_id}">Renew</button>
+                    <button class="delete-cert-btn readonly-hide" data-id="${cert.id}">Delete</button>
+                </td>
+            </tr>
+        `;
+        tableBody.innerHTML += row;
+    });
+}
+
+export function renderDnsProvidersTable(accounts) {
+    const tableBody = document.querySelector('#dns-accounts-table tbody');
+    if (!tableBody) return;
+    tableBody.innerHTML = '';
+
+    if (accounts.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="4">No DNS providers found.</td></tr>';
+        return;
+    }
+
+    accounts.forEach(acc => {
+        const row = `
+            <tr>
+                <td>${acc.company}</td>
+                <td>${acc.managed_domain}</td>
+                <td>${acc.provider_type}</td>
+                <td class="actions-cell">
+                    <div class="action-buttons">
+                        <button class="edit-dns-btn readonly-hide" data-id="${acc.id}">Edit</button>
+                        <button class="delete-dns-btn readonly-hide" data-id="${acc.id}">Delete</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        tableBody.innerHTML += row;
+    });
+}
+
+export function renderDeploymentsTable(deployments) {
+    const tableBody = document.querySelector('#deployments-table tbody');
+    if (!tableBody) return;
+    tableBody.innerHTML = '';
+
+    if (deployments.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="9">No deployments found.</td></tr>';
+        return;
+    }
+
+    const sortedDeployments = [...deployments].sort((a, b) => {
+        const companyA = (a.target_system?.company || a.certificate?.dns_provider_account?.company || 'N/A').toLowerCase();
+        const companyB = (b.target_system?.company || b.certificate?.dns_provider_account?.company || 'N/A').toLowerCase();
+        
+        const companyCompare = companyA.localeCompare(companyB);
+        if (companyCompare !== 0) return companyCompare;
+        
+        const certA = (a.certificate?.common_name || 'N/A').toLowerCase();
+        const certB = (b.certificate?.common_name || 'N/A').toLowerCase();
+        return certA.localeCompare(certB);
+    });
+
+    sortedDeployments.forEach(deployment => {
+        const row = `
+            <tr>
+                <td>${escapeHtml(deployment.target_system?.company || deployment.certificate?.dns_provider_account?.company || 'N/A')}</td>
+                <td>${escapeHtml(deployment.certificate?.common_name || 'N/A')}</td>
+                <td>${escapeHtml(deployment.target_system?.system_name || 'N/A')}</td>
+                <td>${escapeHtml(deployment.status || 'pending')}</td>
+                <td>${deployment.certificate?.expires_at ? new Date(deployment.certificate.expires_at).toLocaleDateString() : 'N/A'}</td>
+                <td>${deployment.next_renewal_date ? new Date(deployment.next_renewal_date).toLocaleDateString() : 'N/A'}</td>
+                <td style="text-align: center;">
+                    <input type="checkbox" class="toggle-switch auto-renewal-toggle"
+                           data-id="${deployment.id}"
+                           ${deployment.auto_renewal_enabled ? 'checked' : ''}>
+                </td>
+                <td class="actions-cell">
+                    <div class="action-buttons">
+                        <button class="deploy-btn" data-id="${deployment.id}">Deploy</button>
+                        <button class="verify-vpn-btn" data-id="${deployment.id}" style="margin-left: 5px;">Verify</button>
+                        <button class="renew-cert-btn" data-id="${deployment.id}" style="margin-left: 5px;">Renew Cert</button>
+                        <button class="edit-deployment-btn" data-id="${deployment.id}" style="margin-left: 5px;">Edit</button>
+                        <button class="delete-deployment-btn" data-id="${deployment.id}">Delete</button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -216,7 +339,22 @@ export function renderTargetSystemsTable(targetSystems, dnsProviders) {
         return;
     }
 
-    targetSystems.forEach(ts => {
+    // Sort target systems: first by company A-Z, then by system name A-Z
+    const sortedTargetSystems = [...targetSystems].sort((a, b) => {
+        const companyA = (a.company || 'N/A').toLowerCase();
+        const companyB = (b.company || 'N/A').toLowerCase();
+        
+        // First sort by company
+        const companyCompare = companyA.localeCompare(companyB);
+        if (companyCompare !== 0) {
+            return companyCompare;
+        }
+        
+        // If companies are the same, sort by system name
+        return a.system_name.toLowerCase().localeCompare(b.system_name.toLowerCase());
+    });
+
+    sortedTargetSystems.forEach(ts => {
         const dnsProvider = dnsProviders.find(p => p.id === ts.dns_provider_account_id);
         const companyName = ts.company || 'N/A';
         const row = `
@@ -225,7 +363,7 @@ export function renderTargetSystemsTable(targetSystems, dnsProviders) {
                 <td>${ts.system_name}</td>
                 <td>${ts.system_type}</td>
                 <td>${ts.public_ip}</td>
-                <td>${ts.port}</td>
+                <td>${ts.management_port}</td>
                 <td>
                     <button class="edit-ts-btn" data-id="${ts.id}">Edit</button>
                     <button class="delete-ts-btn" data-id="${ts.id}">Delete</button>
@@ -461,6 +599,15 @@ export function initializePlaceholders() {
     for (const id in placeholders) {
         const el = document.getElementById(id);
         if (el) el.textContent = placeholders[id];
+    }
+}
+
+export function showLogMessageModal(message) {
+    const modal = document.getElementById('log-message-modal');
+    const messageElement = document.getElementById('full-log-message');
+    if (modal && messageElement) {
+        messageElement.textContent = message;
+        showModal(modal);
     }
 }
 

@@ -2,7 +2,7 @@ import { API_URL } from '../config.js';
 import { safeFetch, showToast, formatVendorName, safeEventSource } from '../utils.js';
 import {
     showModal, hideModal, updateApiKeyFieldLabel, showVendorSpecificInfo,
-    createTestProgressDisplay, updateTestStep, clearTestProgressDisplay
+    createTestProgressDisplay, updateTestStep, clearTestProgressDisplay, showConfirmationModal
 } from '../ui.js';
 import { fetchTargetSystems, fetchDnsProviders } from '../api.js';
 
@@ -119,7 +119,7 @@ function setupTestConnectionButton() {
             system_name: document.getElementById('ts-name').value,
             system_type: type,
             public_ip: document.getElementById('ts-public-ip').value,
-            port: parseInt(document.getElementById('ts-port').value, 10),
+            management_port: parseInt(document.getElementById('ts-port').value, 10),
             api_key: '' // Default to empty string
         };
 
@@ -233,7 +233,7 @@ function setupEditTargetSystemForm() {
             system_name: document.getElementById('edit-ts-name').value,
             system_type: type,
             public_ip: document.getElementById('edit-ts-public-ip').value,
-            port: parseInt(document.getElementById('edit-ts-port').value, 10),
+            management_port: parseInt(document.getElementById('edit-ts-port').value, 10),
         };
         
         const apiKey = document.getElementById('edit-ts-api-key').value;
@@ -273,7 +273,7 @@ function setupTargetSystemDynamicEventListeners() {
                     document.getElementById('edit-ts-type').value = targetSystem.system_type;
                     document.getElementById('edit-ts-name').value = targetSystem.system_name;
                     document.getElementById('edit-ts-public-ip').value = targetSystem.public_ip;
-                    document.getElementById('edit-ts-port').value = targetSystem.port;
+                    document.getElementById('edit-ts-port').value = targetSystem.management_port;
                     document.getElementById('edit-ts-api-key').value = '';
                     
                     showVendorSpecificInfo();
@@ -281,6 +281,7 @@ function setupTargetSystemDynamicEventListeners() {
                         document.getElementById('edit-ts-admin-username').value = targetSystem.admin_username || '';
                     }
                     
+                    updateApiKeyFieldLabel();
                     updateNameField(true);
                     showModal(document.getElementById('edit-target-system-modal'));
                 }
@@ -291,7 +292,7 @@ function setupTargetSystemDynamicEventListeners() {
 
         if (e.target.classList.contains('delete-ts-btn')) {
             const targetSystemId = e.target.dataset.id;
-            if (confirm('Are you sure you want to delete this target system?')) {
+            showConfirmationModal('Are you sure you want to delete this target system?', async () => {
                 try {
                     await safeFetch(`${API_URL}/target-systems/${targetSystemId}`, { method: 'DELETE' });
                     fetchTargetSystems();
@@ -299,7 +300,7 @@ function setupTargetSystemDynamicEventListeners() {
                 } catch (error) {
                     // Error is handled by safeFetch
                 }
-            }
+            });
         }
     });
 }

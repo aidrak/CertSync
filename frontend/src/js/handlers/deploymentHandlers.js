@@ -1,7 +1,7 @@
 import { API_URL } from '../config.js';
 import { safeFetch, showToast, safeEventSource } from '../utils.js';
-import { showModal, hideModal, updateTestStep } from '../ui.js';
-import { fetchCertificates, fetchTargetSystems, fetchDeployments, fetchCompanies, fetchCertificatesByCompany, fetchTargetSystemsByCompany, createDeployment, verifyVpnDeployment } from '../api.js';
+import { showModal, hideModal, updateTestStep, showConfirmationModal } from '../ui.js';
+import { fetchCertificates, fetchTargetSystems, fetchDeployments, fetchCompanies, fetchCertificatesByCompany, fetchTargetSystemsByCompany, createDeployment, verifyVpnDeployment, getDeployment, updateDeployment, renewCertificate } from '../api.js';
 
 async function populateSelectWithOptions(selectElementId, fetchData, optionTextFormatter) {
     const selectElement = document.getElementById(selectElementId);
@@ -103,6 +103,11 @@ function setupAddDeploymentModal() {
             document.getElementById('deployment-auto-renewal').checked = true;
             
             await populateCompanyDropdown();
+            const company = document.getElementById('deployment-company').value;
+            await Promise.all([
+                populateCertificateDropdown(company),
+                populateTargetSystemDropdown(company)
+            ]);
             showModal(addDeploymentModal);
         }
     });
@@ -121,8 +126,10 @@ function setupCompanyChangeHandler() {
 }
 
 function setupAddDeploymentForm() {
-    document.body.addEventListener('submit', async (e) => {
-        if (e.target.id !== 'add-deployment-form') return;
+    const form = document.getElementById('add-deployment-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const certificateId = document.getElementById('deployment-certificate').value;
@@ -320,11 +327,34 @@ function setupDeploymentDynamicEventListeners() {
             }
         }
 
+        // Renew certificate functionality
+        if (e.target.classList.contains('renew-cert-btn')) {
+            const deploymentId = e.target.dataset.id;
+            const button = e.target;
+            const originalText = button.textContent;
+            
+            try {
+                button.textContent = 'Renewing...';
+                button.disabled = true;
+                
+                const result = await renewCertificate(deploymentId);
+                showToast('Certificate renewal completed successfully!', 'success');
+                await fetchDeployments(); // Refresh the table
+                
+            } catch (error) {
+                console.error('Certificate renewal error:', error);
+                showToast('Certificate renewal failed', 'error');
+            } finally {
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+
         // Delete deployment functionality
         if (e.target.classList.contains('delete-deployment-btn')) {
             const deploymentId = e.target.dataset.id;
             
-            if (confirm('Are you sure you want to delete this deployment?')) {
+            showConfirmationModal('Are you sure you want to delete this deployment?', async () => {
                 try {
                     await safeFetch(`${API_URL}/deploy/${deploymentId}`, { method: 'DELETE' });
                     showToast('Deployment deleted successfully', 'success');
@@ -332,7 +362,155 @@ function setupDeploymentDynamicEventListeners() {
                 } catch (error) {
                     // Error is handled by safeFetch
                 }
+            });
+        }
+    });
+}
+
+async function populateEditCompanyDropdown() {
+    const companySelect = document.getElementById('edit-deployment-company');
+    if (!companySelect) return;
+
+    try {
+        const companies = await fetchCompanies();
+        companySelect.innerHTML = '<option value="">Select Company</option>';
+        companies.forEach(company => {
+            const option = document.createElement('option');
+            option.value = company;
+            option.textContent = company;
+            companySelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Failed to populate companies:', error);
+    }
+}
+
+async function populateEditCertificateDropdown(company, selectedCertId = null) {
+    const certificateSelect = document.getElementById('edit-deployment-certificate');
+    if (!certificateSelect) return;
+
+    if (!company) {
+        certificateSelect.innerHTML = '<option value="">Select Certificate</option>';
+        certificateSelect.disabled = true;
+        return;
+    }
+
+    try {
+        const certificates = await fetchCertificatesByCompany(company);
+        certificateSelect.innerHTML = '<option value="">Select Certificate</option>';
+        certificates.forEach(cert => {
+            const option = document.createElement('option');
+            option.value = cert.id;
+            option.textContent = cert.common_name;
+            if (cert.id == selectedCertId) option.selected = true;
+            certificateSelect.appendChild(option);
+        });
+        certificateSelect.disabled = false;
+    } catch (error) {
+        console.error('Failed to populate certificates:', error);
+        certificateSelect.disabled = true;
+    }
+}
+
+async function populateEditTargetSystemDropdown(company, selectedTargetId = null) {
+    const targetSystemSelect = document.getElementById('edit-deployment-target-system');
+    if (!targetSystemSelect) return;
+
+    if (!company) {
+        targetSystemSelect.innerHTML = '<option value="">Select Target System</option>';
+        targetSystemSelect.disabled = true;
+        return;
+    }
+
+    try {
+        const targetSystems = await fetchTargetSystemsByCompany(company);
+        targetSystemSelect.innerHTML = '<option value="">Select Target System</option>';
+        targetSystems.forEach(ts => {
+            const option = document.createElement('option');
+            option.value = ts.id;
+            option.textContent = ts.system_name;
+            if (ts.id == selectedTargetId) option.selected = true;
+            targetSystemSelect.appendChild(option);
+        });
+        targetSystemSelect.disabled = false;
+    } catch (error) {
+        console.error('Failed to populate target systems:', error);
+        targetSystemSelect.disabled = true;
+    }
+}
+
+function setupEditDeploymentModal() {
+    document.body.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('edit-deployment-btn')) {
+            const deploymentId = e.target.dataset.id;
+            const editModal = document.getElementById('edit-deployment-modal');
+            
+            try {
+                // Get deployment details
+                const deployment = await getDeployment(deploymentId);
+                
+                // Populate form
+                document.getElementById('edit-deployment-id').value = deploymentId;
+                document.getElementById('edit-deployment-auto-renewal').checked = deployment.auto_renewal_enabled;
+                
+                // Populate companies dropdown
+                await populateEditCompanyDropdown();
+                
+                // Set selected company
+                const companySelect = document.getElementById('edit-deployment-company');
+                companySelect.value = deployment.certificate.company;
+                
+                // Populate certificates and target systems for the selected company
+                await Promise.all([
+                    populateEditCertificateDropdown(deployment.certificate.company, deployment.certificate_id),
+                    populateEditTargetSystemDropdown(deployment.certificate.company, deployment.target_system_id)
+                ]);
+                
+                showModal(editModal);
+            } catch (error) {
+                showToast('Failed to load deployment details', 'error');
             }
+        }
+    });
+}
+
+function setupEditCompanyChangeHandler() {
+    document.body.addEventListener('change', async (e) => {
+        if (e.target.id === 'edit-deployment-company') {
+            const company = e.target.value;
+            await Promise.all([
+                populateEditCertificateDropdown(company),
+                populateEditTargetSystemDropdown(company)
+            ]);
+        }
+    });
+}
+
+function setupEditDeploymentForm() {
+    const form = document.getElementById('edit-deployment-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const deploymentId = document.getElementById('edit-deployment-id').value;
+        const certificateId = document.getElementById('edit-deployment-certificate').value;
+        const targetSystemId = document.getElementById('edit-deployment-target-system').value;
+        const autoRenewalEnabled = document.getElementById('edit-deployment-auto-renewal').checked;
+
+        // Basic validation
+        if (!certificateId || !targetSystemId) {
+            showToast('Please select both certificate and target system', 'error');
+            return;
+        }
+
+        try {
+            await updateDeployment(deploymentId, certificateId, targetSystemId, autoRenewalEnabled);
+            hideModal(document.getElementById('edit-deployment-modal'));
+            await fetchDeployments();
+            showToast('Deployment updated successfully!', 'success');
+        } catch (error) {
+            // Error is handled by safeFetch
         }
     });
 }
@@ -346,5 +524,8 @@ export function initializeDeploymentHandlers() {
     setupAddDeploymentModal();
     setupCompanyChangeHandler();
     setupAddDeploymentForm();
+    setupEditDeploymentModal();
+    setupEditCompanyChangeHandler();
+    setupEditDeploymentForm();
     setupDeploymentDynamicEventListeners();
 }

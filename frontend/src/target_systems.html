@@ -16,7 +16,6 @@
             <li><a href="target_systems.html" class="active" data-link>Target Systems</a></li>
             <li><a href="deployments.html" data-link>Deployments</a></li>
             <li><a href="logs.html" data-link>Logs</a></li>
-            <li><a href="users.html" data-link>Users</a></li>
             <li><a href="settings.html" data-link>Settings</a></li>
         </ul>
         <div class="nav-user">
@@ -26,7 +25,7 @@
     <main class="main-content">
         <div class="container">
             <h1>Manage Target Systems</h1>
-            <button id="add-target-system-btn" class="btn">Add Target System</button>
+            <button id="add-target-system-btn" class="btn readonly-hide">Add Target System</button>
             <table id="target-systems-table" class="fixed-height-table">
                 <thead>
                     <tr>
@@ -34,7 +33,7 @@
                         <th>System Name</th>
                         <th>Type</th>
                         <th>Public IP</th>
-                        <th>Port</th>
+                        <th>Management Port</th>
                         <th>Actions</th>
                     </tr>
                 </thead>

@@ -16,7 +16,6 @@
             <li><a href="target_systems.html" data-link>Target Systems</a></li>
             <li><a href="deployments.html" data-link>Deployments</a></li>
             <li><a href="logs.html" data-link>Logs</a></li>
-            <li><a href="users.html" data-link>Users</a></li>
             <li><a href="settings.html" class="active" data-link>Settings</a></li>
         </ul>
         <div class="nav-user">
@@ -35,6 +34,14 @@
                         <p>Manage your password and account details.</p>
                         <button type="button" id="change-password-btn-user" class="btn">Change Password</button>
                     </form>
+                </div>
+
+                <div class="card admin-only" id="user-management-card">
+                    <div class="card-header">
+                        <h2>User Management</h2>
+                        <button id="add-user-btn" class="btn readonly-hide">Add User</button>
+                    </div>
+                    <div id="users-list" class="user-list"></div>
                 </div>
 
                 <div class="card admin-only" id="logging-settings-card">
@@ -120,37 +127,38 @@
         </div>
     </main>
 
-    <!-- Add User Modal -->
-    <div id="add-user-modal" class="modal">
+    <!-- User Management Modal -->
+    <div id="user-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn">&times;</span>
             <h2 id="user-modal-title">Add User</h2>
-            <form id="add-user-form">
+            <form id="user-form">
                 <input type="hidden" id="user-id">
                 <label for="user-username">Username:</label>
                 <input type="text" id="user-username" required>
-                <label for="user-password">Password:</label>
-                <input type="password" id="user-password">
-                <small>Leave blank to keep current password when editing.</small>
                 <label for="user-role">Role:</label>
                 <select id="user-role" required>
                     <option value="admin">Admin</option>
                     <option value="technician">Technician</option>
                     <option value="readonly">Read-Only</option>
                 </select>
+                <hr>
+                <h3>Set Password</h3>
+                <label for="user-password">New Password:</label>
+                <input type="password" id="user-password">
+                <small>Leave blank to keep current password when editing.</small>
                 <button type="submit" id="user-form-submit-btn">Add User</button>
             </form>
         </div>
     </div>
 
     <div id="change-password-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content align-left">
             <span class="close-btn">&times;</span>
-            <h2 id="change-password-modal-title">Change Password</h2>
+            <h2 id="change-password-modal-title">Change Your Password</h2>
             <form id="change-password-form">
-                <input type="hidden" id="change-password-user-id">
                 <label for="current-password">Current Password:</label>
-                <input type="password" id="current-password">
+                <input type="password" id="current-password" required>
                 <label for="new-password">New Password:</label>
                 <input type="password" id="new-password" required>
                 <label for="confirm-password">Confirm New Password:</label>

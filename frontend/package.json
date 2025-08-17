@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "puppeteer": "^24.16.2"
+  },
+  "scripts": {
+    "start": "http-server -p 8877"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

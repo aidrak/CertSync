@@ -50,6 +50,10 @@ function initializePageContent(pageName) {
         case 'logs':
             fetchLogs();
             break;
+
+        case 'users':
+            fetchUsers();
+            break;
             
         case 'settings':
             fetchUsers();
@@ -67,17 +71,26 @@ export function checkAuthentication() {
         return;
     }
     
-    // const token = localStorage.getItem('accessToken');
-    // if (!token) {
-    //     window.location.href = 'login.html';
-    //     return;
-    // }
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+        window.location.href = 'login.html';
+        return;
+    }
     
     // Set user role visibility
     const userRole = localStorage.getItem('userRole');
+    if (userRole === 'readonly') {
+        document.body.classList.add('readonly');
+    }
+
     if (userRole !== 'admin') {
         document.querySelectorAll('.admin-only').forEach(el => {
             el.style.display = 'none';
         });
+
+        // Redirect if a non-admin tries to access the users page
+        if (window.location.pathname.includes('users.html')) {
+            window.location.href = 'index.html';
+        }
     }
 }

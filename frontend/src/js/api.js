@@ -1,6 +1,6 @@
 import { API_URL } from './config.js';
 import { safeFetch, showToast, formatVendorName, escapeHtml } from './utils.js';
-import { renderExpirationChart, showModal, hideModal, showVendorSpecificInfo, renderCertificatesTable, renderTargetSystemsTable } from './ui.js';
+import { renderExpirationChart, showModal, hideModal, showVendorSpecificInfo, renderCertificatesTable, renderTargetSystemsTable, renderDnsProvidersTable, renderDeploymentsTable } from './ui.js';
 
 export async function fetchTargetSystems() {
     try {
@@ -91,7 +91,7 @@ export async function fetchLogs() {
             safeFetch(`${API_URL}/system/timezone/`)
         ]);
         const timezone = timezoneData.timezone;
-        const logsTable = document.getElementById('logs-table')?.getElementsByTagName('tbody')[0];
+        const logsTable = document.getElementById('logs-table')?.getElementsByTagName('tbody');
         if (logsTable) {
             logsTable.innerHTML = '';
             logs.forEach(log => {
@@ -101,8 +101,17 @@ export async function fetchLogs() {
                     <td>${escapeHtml(log.level.toUpperCase())}</td>
                     <td>${escapeHtml(log.action)}</td>
                     <td>${escapeHtml(log.target)}</td>
-                    <td>${escapeHtml(log.message)}</td>
+                    <td class="log-message">${escapeHtml(log.message)}</td>
+                    <td>${log.user ? escapeHtml(log.user.username) : 'N/A'}</td>
                 `;
+                row.addEventListener('click', () => {
+                    const modal = document.getElementById('log-message-modal');
+                    const messageElement = document.getElementById('full-log-message');
+                    if (modal && messageElement) {
+                        messageElement.textContent = log.message;
+                        showModal(modal);
+                    }
+                });
             });
         }
     } catch (error) {
@@ -125,9 +134,9 @@ export async function fetchUsers() {
                         <span class="role">${escapeHtml(user.role)}</span>
                     </div>
                     <div class="user-actions">
-                        <button class="edit-user-btn" data-id="${user.id}" data-username="${user.username}" data-role="${user.role}">Edit</button>
-                        <button class="delete-user-btn" data-id="${user.id}">Delete</button>
-                        <button class="change-password-btn" data-id="${user.id}">Change Password</button>
+                        <button class="edit-user-btn readonly-hide" data-id="${user.id}" data-username="${user.username}" data-role="${user.role}">Edit</button>
+                        <button class="delete-user-btn readonly-hide" data-id="${user.id}">Delete</button>
+                        <button class="change-password-btn readonly-hide" data-id="${user.id}">Change Password</button>
                     </div>
                 `;
                 usersList.appendChild(userItem);
@@ -141,27 +150,11 @@ export async function fetchUsers() {
 export async function fetchDnsProviders() {
     try {
         const accounts = await safeFetch(`${API_URL}/dns/dns-provider-accounts/`);
-        const dnsAccountsTable = document.getElementById('dns-accounts-table')?.getElementsByTagName('tbody')[0];
-        if (dnsAccountsTable) {
-            dnsAccountsTable.innerHTML = '';
-            accounts.forEach(acc => {
-                const row = dnsAccountsTable.insertRow();
-                row.innerHTML = `
-                    <td>${acc.company}</td>
-                    <td>${acc.managed_domain}</td>
-                    <td>${acc.provider_type}</td>
-                    <td class="actions-cell">
-                        <div class="action-buttons">
-                            <button class="edit-dns-btn" data-id="${acc.id}">Edit</button>
-                            <button class="delete-dns-btn" data-id="${acc.id}">Delete</button>
-                        </div>
-                    </td>
-                `;
-            });
-        }
+        renderDnsProvidersTable(accounts);
         return accounts;
     } catch (error) {
         // Error is already displayed by safeFetch
+        renderDnsProvidersTable([]);
         return [];
     }
 }
@@ -250,31 +243,10 @@ export async function setLogLevel() {
 export async function fetchDeployments() {
     try {
         const deployments = await safeFetch(`${API_URL}/deploy/`);
-        const deploymentsTable = document.getElementById('deployments-table')?.getElementsByTagName('tbody')[0];
-        if (deploymentsTable) {
-            deploymentsTable.innerHTML = '';
-            deployments.forEach(deployment => {
-                const row = deploymentsTable.insertRow();
-                row.innerHTML = `
-                    <td>${escapeHtml(deployment.target_system?.company || deployment.certificate?.dns_provider_account?.company || 'N/A')}</td>
-                    <td>${escapeHtml(deployment.certificate?.common_name || 'N/A')}</td>
-                    <td>${escapeHtml(deployment.target_system?.system_name || 'N/A')}</td>
-                    <td>${escapeHtml(deployment.status || 'pending')}</td>
-                    <td>${deployment.last_deployed_at ? new Date(deployment.last_deployed_at).toLocaleDateString() : 'Never'}</td>
-                    <td>${deployment.next_renewal_date ? new Date(deployment.next_renewal_date).toLocaleDateString() : 'N/A'}</td>
-                    <td>${deployment.auto_renewal_enabled ? 'Yes' : 'No'}</td>
-                    <td class="actions-cell">
-                        <div class="action-buttons">
-                            <button class="deploy-btn" data-id="${deployment.id}">Deploy</button>
-                            <button class="verify-vpn-btn" data-id="${deployment.id}" style="margin-left: 5px;">Verify VPN</button>
-                            <button class="delete-deployment-btn" data-id="${deployment.id}">Delete</button>
-                        </div>
-                    </td>
-                `;
-            });
-        }
+        renderDeploymentsTable(deployments);
         return deployments;
     } catch (error) {
+        renderDeploymentsTable([]);
         return [];
     }
 }
@@ -319,4 +291,28 @@ export async function fetchTargetSystemsByCompany(company) {
     } catch (error) {
         return [];
     }
+}
+
+export async function getDeployment(deploymentId) {
+    return await safeFetch(`${API_URL}/deploy/${deploymentId}`);
+}
+
+export async function updateDeployment(deploymentId, certificateId, targetSystemId, autoRenewalEnabled) {
+    return await safeFetch(`${API_URL}/deploy/${deploymentId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            certificate_id: certificateId,
+            target_system_id: targetSystemId,
+            auto_renewal_enabled: autoRenewalEnabled
+        })
+    });
+}
+
+export async function renewCertificate(deploymentId) {
+    return await safeFetch(`${API_URL}/deploy/${deploymentId}/renew`, {
+        method: 'POST'
+    });
 }

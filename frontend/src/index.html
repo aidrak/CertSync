@@ -16,7 +16,6 @@
             <li><a href="target_systems.html" data-link>Target Systems</a></li>
             <li><a href="deployments.html" data-link>Deployments</a></li>
             <li><a href="logs.html" data-link>Logs</a></li>
-            <li><a href="users.html" data-link>Users</a></li>
             <li><a href="settings.html" data-link>Settings</a></li>
         </ul>
         <div class="nav-user">
@@ -133,6 +132,16 @@
         </div>
     </div>
 
+    <div id="confirmation-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="confirmation-title">Are you sure?</h2>
+            <p id="confirmation-message"></p>
+            <div class="confirmation-buttons">
+                <button id="confirm-btn">Yes</button>
+                <button id="cancel-btn">No</button>
+            </div>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="js/main.js"></script>
     <div id="toast-container"></div>

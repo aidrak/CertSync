@@ -3,7 +3,7 @@ import { safeFetch, showToast } from '../utils.js';
 import {
     showModal, hideModal,
     createTestProgressDisplay, updateTestStep, clearTestProgressDisplay,
-    updateDnsCredentialsFields, updateEditDnsCredentialsFields
+    updateDnsCredentialsFields, updateEditDnsCredentialsFields, showConfirmationModal
 } from '../ui.js';
 import { fetchDnsProviders } from '../api.js';
 
@@ -194,7 +194,7 @@ function setupDnsDynamicEventListeners() {
 
         if (e.target.classList.contains('delete-dns-btn')) {
             const accountId = e.target.dataset.id;
-            if (confirm('Are you sure you want to delete this DNS provider account?')) {
+            showConfirmationModal('Are you sure you want to delete this DNS provider account?', async () => {
                 try {
                     await safeFetch(`${API_URL}/dns/dns-provider-accounts/${accountId}`, { method: 'DELETE' });
                     fetchDnsProviders();
@@ -202,7 +202,7 @@ function setupDnsDynamicEventListeners() {
                 } catch (error) {
                     // Error is handled by safeFetch
                 }
-            }
+            });
         }
     });
 }
