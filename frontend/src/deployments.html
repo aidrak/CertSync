@@ -24,8 +24,15 @@
     </aside>
     <main class="main-content">
         <div class="container">
-            <h1>Manage Deployments</h1>
-            <button id="add-deployment-btn" class="btn readonly-hide">Add Deployment</button>
+            <div class="page-header">
+                <h1>Manage Deployments</h1>
+                <div class="header-actions">
+                    <div class="search-container">
+                        <input type="text" id="search-input" placeholder="Search...">
+                    </div>
+                    <button id="add-deployment-btn" class="btn readonly-hide">Add Deployment</button>
+                </div>
+            </div>
             <table id="deployments-table" class="fixed-height-table">
                 <thead>
                     <tr>

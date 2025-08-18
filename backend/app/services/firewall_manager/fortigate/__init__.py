@@ -6,11 +6,14 @@ except ImportError:
     class FortiGateManager:
         def __init__(self, *args, **kwargs):
             pass
-        
+
         def deploy_certificate(self, *args, **kwargs):
-            raise NotImplementedError("FortiGate certificate deployment not implemented yet")
-        
+            raise NotImplementedError(
+                "FortiGate certificate deployment not implemented yet"
+            )
+
         def test_connection(self, *args, **kwargs):
             raise NotImplementedError("FortiGate connection test not implemented yet")
 
-__all__ = ['FortiGateManager']
+
+__all__ = ["FortiGateManager"]

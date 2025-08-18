@@ -6,11 +6,14 @@ except ImportError:
     class CloudflareManager:
         def __init__(self, *args, **kwargs):
             pass
-        
+
         def deploy_certificate(self, *args, **kwargs):
-            raise NotImplementedError("Cloudflare certificate deployment not implemented yet")
-        
+            raise NotImplementedError(
+                "Cloudflare certificate deployment not implemented yet"
+            )
+
         def test_connection(self, *args, **kwargs):
             raise NotImplementedError("Cloudflare connection test not implemented yet")
 
-__all__ = ['CloudflareManager']
+
+__all__ = ["CloudflareManager"]

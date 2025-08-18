@@ -11,14 +11,14 @@ services:
     environment:
       - TZ=${TZ}
     depends_on:
-      - cert-manager
+      - backend
     command: nginx -g 'daemon off;'
     networks:
       - certsync_network
 
-  cert-manager:
-    image: certsync-cert-manager
-    container_name: certsync-cert-manager-1
+  backend:
+    image: certsync-backend
+    container_name: certsync-backend-1
     build:
       context: ./backend
     entrypoint: /app/entrypoint.sh # <--- NEW LINE: Specify the entrypoint script

@@ -1,4 +1,4 @@
-import { formatVendorName } from './utils.js';
+import { formatVendorName, escapeHtml } from './utils.js';
 
 export function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
@@ -335,7 +335,7 @@ export function renderTargetSystemsTable(targetSystems, dnsProviders) {
     tableBody.innerHTML = '';
 
     if (targetSystems.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6">No target systems found.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="7">No target systems found.</td></tr>';
         return;
     }
 
@@ -363,6 +363,7 @@ export function renderTargetSystemsTable(targetSystems, dnsProviders) {
                 <td>${ts.system_name}</td>
                 <td>${ts.system_type}</td>
                 <td>${ts.public_ip}</td>
+                <td>${ts.vpn_port || 'N/A'}</td>
                 <td>${ts.management_port}</td>
                 <td>
                     <button class="edit-ts-btn" data-id="${ts.id}">Edit</button>

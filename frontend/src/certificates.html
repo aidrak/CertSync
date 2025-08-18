@@ -24,8 +24,15 @@
     </aside>
     <main class="main-content">
         <div class="container">
-            <h1>Manage Certificates</h1>
-            <button id="request-certificate-btn" class="btn readonly-hide">Add Certificate</button>
+            <div class="page-header">
+                <h1>Manage Certificates</h1>
+                <div class="header-actions">
+                    <div class="search-container">
+                        <input type="text" id="search-input" placeholder="Search...">
+                    </div>
+                    <button id="request-certificate-btn" class="btn readonly-hide">Add Certificate</button>
+                </div>
+            </div>
             <table id="certificates-table" class="fixed-height-table">
                 <thead>
                     <tr>

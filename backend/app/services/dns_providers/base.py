@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+
 class DnsProviderBase(ABC):
     @abstractmethod
     def create_txt_record(self, domain: str, token: str):

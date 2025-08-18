@@ -14,16 +14,17 @@ logger = logging.getLogger(__name__)
 LE_STAGING_DIR = "https://acme-staging-v02.api.letsencrypt.org/directory"
 LE_PROD_DIR = "https://acme-v02.api.letsencrypt.org/directory"
 
+
 class LetsEncryptService:
     def __init__(self, email: str, dns_provider: DnsProviderBase, staging: bool = True):
         self.logs = []
         self._log(f"🚀 Initializing LetsEncryptService for {email} (Staging: {staging})")
-        
+
         self.email = email
         self.dns_provider = dns_provider
         self.directory_url = LE_STAGING_DIR if staging else LE_PROD_DIR
         self.account_resource = None
-        
+
         try:
             self.account_key = self._get_or_create_account_key()
             self.net = client.ClientNetwork(self.account_key, user_agent="CertSync")
@@ -41,10 +42,12 @@ class LetsEncryptService:
         self.logs.append(f"[{timestamp}] {message}")
 
     def _get_or_create_account_key(self) -> jose.JWKRSA:
-        key_path = os.getenv('ACME_ACCOUNT_KEY_PATH', '/etc/certsync/acme_account_key.pem')
+        key_path = os.getenv(
+            "ACME_ACCOUNT_KEY_PATH", "/etc/certsync/acme_account_key.pem"
+        )
         key_dir = os.path.dirname(key_path)
         os.makedirs(key_dir, exist_ok=True)
-        
+
         if os.path.exists(key_path):
             self._log("🔑 Found existing ACME account key.")
             with open(key_path, "rb") as f:
@@ -54,21 +57,26 @@ class LetsEncryptService:
             self._log("🔑 No ACME account key found, creating a new one.")
             private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
             with open(key_path, "wb") as f:
-                f.write(private_key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PrivateFormat.TraditionalOpenSSL,
-                    encryption_algorithm=serialization.NoEncryption()
-                ))
+                f.write(
+                    private_key.private_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PrivateFormat.TraditionalOpenSSL,
+                        encryption_algorithm=serialization.NoEncryption(),
+                    )
+                )
             os.chmod(key_path, 0o600)
             self._log("✅ New ACME account key created.")
-            
+
         return jose.JWKRSA(key=private_key)
 
     def _register_account(self):
         from acme import errors
+
         self._log("👤 Verifying ACME account...")
         try:
-            regr = messages.NewRegistration.from_data(email=self.email, terms_of_service_agreed=True)
+            regr = messages.NewRegistration.from_data(
+                email=self.email, terms_of_service_agreed=True
+            )
             self.account_resource = self.client.new_account(regr)
             self.net.account = self.account_resource
             self._log("✅ New ACME account registered.")
@@ -77,24 +85,32 @@ class LetsEncryptService:
             try:
                 # If account exists, retrieve it using only_return_existing
                 existing_regr = messages.NewRegistration.from_data(
-                    email=self.email, 
+                    email=self.email,
                     terms_of_service_agreed=True,
-                    only_return_existing=True
+                    only_return_existing=True,
                 )
                 self.account_resource = self.client.new_account(existing_regr)
                 self.net.account = self.account_resource
                 self._log("✅ Successfully retrieved existing account.")
             except Exception as retrieval_e:
-                self._log(f"ℹ️ Standard account retrieval failed: {retrieval_e}. Using fallback.")
-                # As a fallback, create a minimal resource object from the URL in the original exception
-                if hasattr(e, 'location') and e.location:
-                    self._log("🔧 Reconstructing account resource from existing account URL...")
+                self._log(
+                    f"ℹ️ Standard account retrieval failed: {retrieval_e}. Using fallback."
+                )
+                # Fallback: reconstruct minimal account resource from exception URL
+                if hasattr(e, "location") and e.location:
+                    self._log(
+                        "🔧 Reconstructing account resource from existing account URL..."
+                    )
                     account_body = messages.Registration(key=self.account_key.key)
-                    self.account_resource = messages.RegistrationResource(body=account_body, uri=e.location)
+                    self.account_resource = messages.RegistrationResource(
+                        body=account_body, uri=e.location
+                    )
                     self.net.account = self.account_resource
                     self._log("✅ Account resource reconstructed successfully.")
                 else:
-                    raise Exception("Could not retrieve existing account and no location URL found in conflict error.")
+                    raise Exception(
+                        "Could not retrieve account; no location URL provided."
+                    )
         except Exception as e:
             self._log(f"❌ Failed during account registration: {e}")
             raise
@@ -104,14 +120,22 @@ class LetsEncryptService:
 
     def generate_csr(self, private_key: rsa.RSAPrivateKey, domains: list[str]) -> bytes:
         from cryptography.hazmat.primitives import hashes
-        
-        builder = x509.CertificateSigningRequestBuilder().subject_name(
-            x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, domains[0])])
-        ).add_extension(
-            x509.SubjectAlternativeName([x509.DNSName(domain) for domain in domains]),
-            critical=False,
+
+        builder = (
+            x509.CertificateSigningRequestBuilder()
+            .subject_name(
+                x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, domains[0])])
+            )
+            .add_extension(
+                x509.SubjectAlternativeName(
+                    [x509.DNSName(domain) for domain in domains]
+                ),
+                critical=False,
+            )
         )
-        return builder.sign(private_key, hashes.SHA256()).public_bytes(serialization.Encoding.PEM)
+        return builder.sign(private_key, hashes.SHA256()).public_bytes(
+            serialization.Encoding.PEM
+        )
 
     def _get_dns_challenge(self, authz):
         """Extract the DNS-01 challenge from an authorization resource."""
@@ -121,32 +145,36 @@ class LetsEncryptService:
         self._log("❌ No DNS-01 challenge found.")
         return None
 
-    async def request_certificate(self, domains: list[str]) -> tuple[str, str, str, list[str]]:
+    async def request_certificate(
+        self, domains: list[str]
+    ) -> tuple[str, str, str, list[str]]:
         self._log(f"🚀 Starting certificate request for: {', '.join(domains)}")
-        
+
         private_key = self.generate_private_key()
         csr_pem = self.generate_csr(private_key, domains)
         self._log("✅ Private key and CSR generated.")
-        
-        order = self.client.new_order(csr_pem)
-        self._log(f"✅ Order created. Authorizations: {len(order.authorizations)}")
 
-        for authz in order.authorizations:
+        order = self.client.new_order(csr_pem)
+        self._log("✅ Order created. Authorizations retrieved.")
+
+        for authz in getattr(order, "authorizations", []):
             domain = authz.body.identifier.value
             self._log(f"📋 Processing authorization for {domain}...")
-            
+
             dns_challenge = self._get_dns_challenge(authz)
             if not dns_challenge:
                 raise Exception(f"DNS-01 challenge not found for {domain}")
 
-            response, validation = dns_challenge.chall.response_and_validation(self.account_key)
+            response, validation = dns_challenge.chall.response_and_validation(
+                self.account_key
+            )
             validation_domain_name = f"_acme-challenge.{domain}"
-            
+
             try:
-                self._log(f"🔧 Creating TXT record for DNS challenge...")
+                self._log("🔧 Creating TXT record for DNS challenge...")
                 self.dns_provider.create_txt_record(validation_domain_name, validation)
-                self._log(f"✅ TXT record created. Waiting for propagation...")
-                
+                self._log("✅ TXT record created. Waiting for propagation...")
+
                 await asyncio.sleep(30)
 
                 self._log("📢 Answering challenge...")
@@ -154,22 +182,26 @@ class LetsEncryptService:
                 self._log("✅ Challenge answered.")
 
             finally:
-                self._log(f"🧹 Cleaning up TXT record...")
+                self._log("🧹 Cleaning up TXT record...")
                 try:
-                    self.dns_provider.delete_txt_record(validation_domain_name, validation)
+                    self.dns_provider.delete_txt_record(
+                        validation_domain_name, validation
+                    )
                     self._log("✅ TXT record cleaned up.")
                 except Exception as cleanup_error:
                     self._log(f"⚠️ Failed to cleanup DNS record: {cleanup_error}")
 
         self._log("⏳ Finalizing order...")
         deadline = datetime.now() + timedelta(minutes=5)
-        finalized_order = await asyncio.to_thread(self.client.poll_and_finalize, order, deadline=deadline)
-        
+        finalized_order = await asyncio.to_thread(
+            self.client.poll_and_finalize, order, deadline=deadline
+        )
+
         private_key_pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption()
-        ).decode('utf-8')
-        
+            encryption_algorithm=serialization.NoEncryption(),
+        ).decode("utf-8")
+
         self._log("🎉 Certificate generated successfully!")
         return private_key_pem, finalized_order.fullchain_pem, "", self.logs

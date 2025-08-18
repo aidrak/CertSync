@@ -6,6 +6,27 @@ import { initializeDeploymentHandlers } from './deploymentHandlers.js';
 import { showModal, hideModal } from '../ui.js';
 import { fetchDashboardStats, fetchTargetSystems } from '../api.js';
 
+function initializeSearchHandler() {
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const table = document.querySelector('.fixed-height-table tbody');
+            if (table) {
+                const rows = table.querySelectorAll('tr');
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    if (text.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+        });
+    }
+}
+
 function initializeGenericHandlers() {
     // Use event delegation for sign-out and close buttons
     document.body.addEventListener('click', (e) => {
@@ -24,6 +45,7 @@ function initializeGenericHandlers() {
 }
 
 let handlersInitialized = false;
+    initializeSearchHandler();
 
 export function initializeAllHandlers() {
     // Always reinitialize handlers for router navigation

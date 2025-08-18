@@ -67,6 +67,7 @@ ipython_config.py
 
 # VSCode Python extension
 .vscode/settings.json
+.roo
 
 # Python-specific IDE files
 .spyderproject
@@ -106,6 +107,7 @@ Thumbs.db
 *.temp
 .cache/
 .pytest_cache/
+frontend/node_modules/
 
 # MyPy
 .mypy_cache/
@@ -136,7 +138,9 @@ redis-data/
 .dockerbuildcontext
 
 # Testing files (unless you run tests in container)
+backend/tests
 testing/
+tests/
 test_*
 *_test.py
 .pytest_cache/

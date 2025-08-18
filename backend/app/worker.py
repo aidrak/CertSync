@@ -1,21 +1,23 @@
+"""
+This module manages the background worker for certificate renewals.
+"""
+import json
 import logging
-import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from .db.database import SessionLocal
 from .core.config import settings
-from .crud import crud_certificate
-from .services.le_management.le_service import LetsEncryptService
-from .services.dns_providers.factory import DnsProviderFactory
-import json
 from .core.security import decrypt_secret
+from .crud import crud_certificate
+from .crud.crud_certificate import update_certificate
+from .db.database import SessionLocal
+from .services.dns_providers.factory import DnsProviderFactory
+from .services.le_management.le_service import LetsEncryptService
 
 logger = logging.getLogger(__name__)
 
-jobstores = {
-    'default': SQLAlchemyJobStore(url=settings.DATABASE_URL)
-}
+jobstores = {"default": SQLAlchemyJobStore(url=settings.DATABASE_URL)}
 scheduler = AsyncIOScheduler(jobstores=jobstores)
+
 
 async def renew_certificate(cert_id: int):
     """
@@ -25,45 +27,55 @@ async def renew_certificate(cert_id: int):
     try:
         cert = crud_certificate.get_certificate(db, cert_id)
         if not cert:
-            logger.error(f"Certificate with ID {cert_id} not found.")
+            logger.error("Certificate with ID %s not found.", cert_id)
             return
 
-        logger.info(f"Renewing certificate for {cert.common_name}")
+        logger.info("Renewing certificate for %s", cert.common_name)
 
         dns_account = cert.dns_provider_account
         if not dns_account:
-            logger.error(f"No DNS provider account linked to certificate {cert.common_name}")
+            logger.error(
+                "No DNS provider account linked to certificate %s", cert.common_name
+            )
             return
 
         decrypted_creds = decrypt_secret(dns_account.credentials)
         credentials = json.loads(decrypted_creds)
 
         dns_provider = DnsProviderFactory.get_provider(
-            provider_type=dns_account.provider_type.value,
-            credentials=credentials
+            provider_type=dns_account.provider_type,
+            credentials=credentials,
+            domain=str(cert.common_name),
         )
 
         if not dns_provider:
-            logger.error(f"Unsupported DNS provider type: {dns_account.provider_type.value}")
+            logger.error(
+                "Unsupported DNS provider type: %s", dns_account.provider_type.value
+            )
             return
 
         le_service = LetsEncryptService(
             email=settings.LE_EMAIL,
             dns_provider=dns_provider,
-            staging=settings.LE_STAGING
+            staging=settings.LE_STAGING,
         )
-        
-        domains = [cert.common_name]
-        private_key, cert_body, chain = await le_service.request_certificate(domains)
 
-        cert.certificate_body = cert_body
-        cert.private_key = private_key
+        domains = [str(cert.common_name)]
+        private_key, cert_body, _, _ = await le_service.request_certificate(domains)
+
+        update_certificate(
+            db=db,
+            certificate_id=getattr(cert, "id"),
+            certificate_body=cert_body,
+            private_key=private_key,
+        )
         db.commit()
 
-        logger.info(f"Successfully renewed certificate for {cert.common_name}")
+        logger.info("Successfully renewed certificate for %s", cert.common_name)
 
     finally:
         db.close()
+
 
 async def check_certs_for_renewal():
     """
@@ -78,23 +90,24 @@ async def check_certs_for_renewal():
     finally:
         db.close()
 
+
 async def start_scheduler():
     """Start the scheduler and add the recurring job."""
     if not scheduler.running:
         scheduler.start()
         logger.info("Scheduler started.")
 
-    if scheduler.get_job('check_certs_for_renewal_job'):
-        scheduler.remove_job('check_certs_for_renewal_job')
+    if scheduler.get_job("check_certs_for_renewal_job"):
+        scheduler.remove_job("check_certs_for_renewal_job")
 
     scheduler.add_job(
         check_certs_for_renewal,
-        'interval',
+        "interval",
         days=1,
-        id='check_certs_for_renewal_job',
+        id="check_certs_for_renewal_job",
         replace_existing=True,
         coalesce=True,
-        misfire_grace_time=3600
+        misfire_grace_time=3600,
     )
-    
+
     await check_certs_for_renewal()

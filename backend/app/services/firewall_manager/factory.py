@@ -5,16 +5,20 @@ from .panos.provider import PanosManager
 from .sonicwall.provider import SonicWallManager
 from .fortigate.validator import FortiGateValidator
 from .sonicwall.validator import SonicWallValidator
+
 # Import PanosValidator if it exists, otherwise create a placeholder
-# from .panos.validator import PanosValidator 
+# from .panos.validator import PanosValidator
+
 
 # Placeholder for PanosValidator if it doesn't exist
 class PanosValidator:
     def __init__(self, firewall_settings):
         self.firewall_settings = firewall_settings
+
     async def run_complete_test(self):
         yield "PAN-OS validator is not yet implemented."
         yield "Validation successful!"
+
 
 class FirewallManagerFactory:
     @staticmethod
@@ -23,34 +27,37 @@ class FirewallManagerFactory:
             return FortiGateManager(
                 hostname=firewall_settings.public_ip,
                 api_key=firewall_settings.api_key,
-                management_port=firewall_settings.management_port
+                management_port=firewall_settings.management_port,
             )
         elif firewall_settings.system_type == TargetSystemType.panos:
             return PanosManager(
-                hostname=firewall_settings.public_ip,
-                api_key=firewall_settings.api_key
+                hostname=firewall_settings.public_ip, api_key=firewall_settings.api_key
             )
         elif firewall_settings.system_type == TargetSystemType.sonicwall:
             # Use centralized FTP configuration from environment variables
             from ...core.config import settings
             from ...core.security import decrypt_secret
+
             ftp_config = {
-                'host': settings.FTP_HOST,
-                'port': settings.FTP_PORT,
-                'user': settings.FTP_USER,
-                'pass': settings.FTP_PASS,
-                'path': settings.FTP_PATH
+                "host": settings.FTP_HOST,
+                "port": settings.FTP_PORT,
+                "user": settings.FTP_USER,
+                "pass": settings.FTP_PASS,
+                "path": settings.FTP_PATH,
             }
-            
+
             return SonicWallManager(
                 hostname=firewall_settings.public_ip,
                 username=firewall_settings.admin_username,
                 password=decrypt_secret(firewall_settings.admin_password),
                 port=firewall_settings.management_port,
-                ftp_config=ftp_config
+                ftp_config=ftp_config,
             )
         else:
-            raise ValueError(f"Unsupported firewall vendor: {firewall_settings.system_type}")
+            raise ValueError(
+                f"Unsupported firewall vendor: {firewall_settings.system_type}"
+            )
+
 
 class FirewallValidatorFactory:
     @staticmethod
@@ -63,4 +70,6 @@ class FirewallValidatorFactory:
         elif firewall_settings.system_type == TargetSystemType.sonicwall:
             return SonicWallValidator(firewall_settings)
         else:
-            raise ValueError(f"Unsupported firewall vendor for validation: {firewall_settings.system_type}")
+            raise ValueError(
+                f"Unsupported firewall vendor for validation: {firewall_settings.system_type}"
+            )

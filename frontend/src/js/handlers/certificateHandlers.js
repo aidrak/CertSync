@@ -3,6 +3,31 @@ import { safeFetch, showToast, safeEventSource } from '../utils.js';
 import { showModal, hideModal, createTestProgressDisplay, updateTestStep, renderCertificatesTable, clearTestProgressDisplay, showConfirmationModal } from '../ui.js';
 import { fetchCertificates } from '../api.js';
 
+// Enhanced certificate table refresh with retry mechanism
+async function refreshCertificatesTable(attempts = 3, delay = 500) {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        try {
+            console.log(`Refreshing certificates table (attempt ${attempt}/${attempts})`);
+            await fetchCertificates(true); // Show loading indicator
+            console.log('Certificate table refreshed successfully');
+            showToast('Certificate table updated!', 'info');
+            return true; // Success
+        } catch (error) {
+            console.error(`Failed to refresh certificates table (attempt ${attempt}):`, error);
+            
+            if (attempt === attempts) {
+                // Final attempt failed
+                showToast('Table refresh failed. Please refresh the page manually.', 'warning');
+                return false;
+            } else {
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, delay * attempt));
+            }
+        }
+    }
+    return false;
+}
+
 let currentCertEventSource = null;
 
 function resetCertificateRequestButton() {
@@ -147,7 +172,12 @@ function setupCertificateRequestForm() {
             
             updateTestStep(log, status);
 
-            if (log.includes('🎉 Certificate request completed successfully!')) {
+            // Enhanced success detection - check for multiple success indicators
+            if (log.includes('🎉 Certificate request completed successfully!') || 
+                log.includes('Certificate generated and saved') ||
+                log.includes('successfully generated') ||
+                log.includes('Certificate request completed')) {
+                
                 updateTestStep('✅ Certificate generated and saved!', 'success');
                 
                 const form = document.getElementById('request-cert-form');
@@ -155,8 +185,13 @@ function setupCertificateRequestForm() {
                 button.textContent = 'Close';
                 button.disabled = false;
                 
-                // Refresh certificates table immediately
-                fetchCertificates();
+                // Add visual feedback before refreshing
+                showToast('Certificate generated successfully! Updating table...', 'success');
+                
+                // Refresh certificates table with enhanced error handling and retry
+                setTimeout(async () => {
+                    await refreshCertificatesTable();
+                }, 500); // Small delay to ensure backend has processed the save
                 
                 // Remove old event listeners and add new one
                 const newButton = button.cloneNode(true);
@@ -169,7 +204,6 @@ function setupCertificateRequestForm() {
 
                 currentCertEventSource.close();
                 currentCertEventSource = null;
-                showToast('Certificate generated successfully!', 'success');
             }
             
             if (log.includes('❌') && log.includes('Error')) {
@@ -202,8 +236,8 @@ async function deleteCertificate(certId) {
         });
 
         if (response.ok) {
-            showToast('Certificate deleted successfully!', 'success');
-            await fetchCertificates(); // Refresh the table
+            showToast('Certificate deleted successfully! Updating table...', 'success');
+            await refreshCertificatesTable();
         } else {
             const errorData = await response.json();
             showToast(errorData.detail || 'Failed to delete certificate.', 'error');
@@ -300,7 +334,12 @@ async function renewCertificate(certId, commonName, dnsProviderId) {
             
             updateTestStep(log, status);
 
-            if (log.includes('🎉 Certificate request completed successfully!')) {
+            // Enhanced success detection for renewal - check for multiple success indicators
+            if (log.includes('🎉 Certificate request completed successfully!') || 
+                log.includes('Certificate generated and saved') ||
+                log.includes('successfully generated') ||
+                log.includes('Certificate request completed')) {
+                
                 updateTestStep('✅ Certificate renewed and saved!', 'success');
                 
                 const closeBtn = renewalModal.querySelector('.close-renewal-btn');
@@ -309,12 +348,16 @@ async function renewCertificate(certId, commonName, dnsProviderId) {
                     closeBtn.disabled = false;
                 }
                 
-                // Refresh certificates table immediately
-                fetchCertificates();
+                // Add visual feedback before refreshing
+                showToast('Certificate renewed successfully! Updating table...', 'success');
+                
+                // Refresh certificates table with enhanced error handling and retry
+                setTimeout(async () => {
+                    await refreshCertificatesTable();
+                }, 500); // Small delay to ensure backend has processed the renewal
                 
                 currentCertEventSource.close();
                 currentCertEventSource = null;
-                showToast('Certificate renewed successfully!', 'success');
             }
             
             if (log.includes('❌') && log.includes('Error')) {

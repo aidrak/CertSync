@@ -3,6 +3,7 @@ from ..db import models
 from ..schemas import schemas
 from typing import Optional
 
+
 def create_log(db: Session, log: schemas.LogCreate, user_id: Optional[int] = None):
     db_log = models.Log(**log.model_dump(), user_id=user_id)
     db.add(db_log)
@@ -10,5 +11,12 @@ def create_log(db: Session, log: schemas.LogCreate, user_id: Optional[int] = Non
     db.refresh(db_log)
     return db_log
 
+
 def get_logs(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Log).order_by(models.Log.timestamp.desc()).offset(skip).limit(limit).all()
+    return (
+        db.query(models.Log)
+        .order_by(models.Log.timestamp.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )

@@ -119,7 +119,8 @@ function setupTestConnectionButton() {
             system_name: document.getElementById('ts-name').value,
             system_type: type,
             public_ip: document.getElementById('ts-public-ip').value,
-            management_port: parseInt(document.getElementById('ts-port').value, 10),
+            vpn_port: parseInt(document.getElementById('ts-vpn-port').value, 10) || null,
+            management_port: parseInt(document.getElementById('ts-management-port').value, 10),
             api_key: '' // Default to empty string
         };
 
@@ -142,6 +143,7 @@ function setupTestConnectionButton() {
             button.textContent = 'Testing...';
 
             const testData = { ...targetSystemData };
+            delete testData.vpn_port; // Exclude vpn_port from test data
             let sseEndpoint;
 
             // Route to type-specific endpoint and prepare appropriate parameters
@@ -233,7 +235,8 @@ function setupEditTargetSystemForm() {
             system_name: document.getElementById('edit-ts-name').value,
             system_type: type,
             public_ip: document.getElementById('edit-ts-public-ip').value,
-            management_port: parseInt(document.getElementById('edit-ts-port').value, 10),
+            vpn_port: parseInt(document.getElementById('edit-ts-vpn-port').value, 10) || null,
+            management_port: parseInt(document.getElementById('edit-ts-management-port').value, 10),
         };
         
         const apiKey = document.getElementById('edit-ts-api-key').value;
@@ -273,7 +276,8 @@ function setupTargetSystemDynamicEventListeners() {
                     document.getElementById('edit-ts-type').value = targetSystem.system_type;
                     document.getElementById('edit-ts-name').value = targetSystem.system_name;
                     document.getElementById('edit-ts-public-ip').value = targetSystem.public_ip;
-                    document.getElementById('edit-ts-port').value = targetSystem.management_port;
+                    document.getElementById('edit-ts-vpn-port').value = targetSystem.vpn_port;
+                    document.getElementById('edit-ts-management-port').value = targetSystem.management_port;
                     document.getElementById('edit-ts-api-key').value = '';
                     
                     showVendorSpecificInfo();

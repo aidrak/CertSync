@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer');
+const assert = require('assert');
 
 (async () => {
     let browser;
@@ -23,6 +24,7 @@ const puppeteer = require('puppeteer');
         console.log('Navigating to login page...');
         await page.goto('http://localhost:8877/login.html', { waitUntil: 'networkidle2' });
         console.log('Login page loaded.');
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for 2 seconds
 
         // Login
         console.log('Waiting for username field...');
@@ -43,16 +45,35 @@ const puppeteer = require('puppeteer');
         console.log('Navigating to Deployments page...');
         await page.goto('http://localhost:8877/deployments.html', { waitUntil: 'networkidle2' });
         await page.waitForSelector('h1'); // Assuming there is an h1 tag
+        const pageTitle = await page.title();
+        assert.strictEqual(pageTitle, 'Deployments - CertSync', 'Should be on the Deployments page');
+        console.log('Deployments page loaded successfully.');
 
-        // Click the deploy button
-        console.log('Clicking deploy button...');
-        await page.click(".deploy-btn[data-id='2']");
+        // Add a new Deployment
+        console.log('Adding a new Deployment...');
+        await page.click('#add-deployment-btn');
+        await page.waitForSelector('#add-deployment-modal', { visible: true });
+        console.log('"Add Deployment" modal is visible.');
 
-        // Wait for a bit to see the result
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        await page.select('#deployment-company', 'B-Company');
+        await page.waitForSelector('#deployment-certificate option[value="1"]');
+        await page.select('#deployment-certificate', '1');
+        await page.waitForSelector('#deployment-target-system option[value="1"]');
+        await page.select('#deployment-target-system', '1');
+        await page.click('button[type="submit"]');
 
-        console.log('Deployment initiated.');
+        // Wait for the modal to close
+        await page.waitForSelector('#add-deployment-modal', { hidden: true });
+        console.log('Deployment added successfully.');
 
+        // Logout
+        console.log('Clicking logout button...');
+        await page.click('#sign-out-btn');
+        console.log('Waiting for login form...');
+        await page.waitForSelector('form', { timeout: 30000 });
+        console.log('Logout successful, login form is visible.');
+
+        console.log('Test passed!');
     } catch (error) {
         console.error('An error occurred during the Puppeteer test:', error);
         process.exit(1);

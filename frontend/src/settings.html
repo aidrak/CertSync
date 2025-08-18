@@ -67,12 +67,12 @@
                 </div>
                 
                 <div class="card admin-only" id="admin-tools-card">
-                <div class="card-header">
-                    <h2>Admin Tools</h2>
+                    <div class="card-header">
+                        <h2>Admin Tools</h2>
+                    </div>
+                    <p>View a raw JSON list of all issued certificates in the database for auditing.</p>
+                    <button id="view-all-certs-btn" class="btn">View All Certificates</button>
                 </div>
-                <p>View a raw JSON list of all issued certificates in the database for auditing.</p>
-                <button id="view-all-certs-btn" class="btn">View All Certificates</button>
-            </div>
 
             <div class="card admin-only" id="backup-settings-card">
                 <div class="card-header">
@@ -165,6 +165,15 @@
                 <input type="password" id="confirm-password" required>
                 <button type="submit">Change Password</button>
             </form>
+        </div>
+    </div>
+
+    <!-- Raw Certificates Modal -->
+    <div id="raw-certs-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Raw Certificate Data</h2>
+            <pre id="raw-certs-json"></pre>
         </div>
     </div>
 

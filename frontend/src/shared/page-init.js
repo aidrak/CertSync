@@ -36,7 +36,14 @@ function initializePageContent(pageName) {
             break;
             
         case 'certificates':
-            fetchCertificates();
+            // Enhanced error handling for certificates page load
+            fetchCertificates(true).catch(error => {
+                console.error('Failed to load certificates on page init:', error);
+                const tableBody = document.querySelector('#certificates-table tbody');
+                if (tableBody) {
+                    tableBody.innerHTML = '<tr><td colspan="5" class="error-indicator">❌ Failed to load certificates. Please refresh the page.</td></tr>';
+                }
+            });
             break;
             
         case 'target_systems':

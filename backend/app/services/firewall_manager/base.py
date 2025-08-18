@@ -1,12 +1,20 @@
 from abc import ABC, abstractmethod
 from typing import Optional, AsyncIterator
 
+
 class CertificateData:
-    def __init__(self, cert_name: str, cert_body: str, private_key: str, chain: Optional[str] = None):
+    def __init__(
+        self,
+        cert_name: str,
+        cert_body: str,
+        private_key: str,
+        chain: Optional[str] = None,
+    ):
         self.cert_name = cert_name
         self.cert_body = cert_body
         self.private_key = private_key
         self.chain = chain
+
 
 class FirewallBase(ABC):
     @abstractmethod
@@ -30,36 +38,38 @@ class FirewallBase(ABC):
         yield "This method needs to be implemented"
 
     # VPN-specific methods
-    async def deploy_vpn_certificate(self, cert_data: CertificateData) -> AsyncIterator[str]:
+    async def deploy_vpn_certificate(
+        self, cert_data: CertificateData
+    ) -> AsyncIterator[str]:
         """
         Deploy certificate to SSL VPN service.
         Default implementation falls back to import + apply.
         VPN managers can override for specialized deployment.
         """
         yield f"🚀 Starting VPN certificate deployment for {cert_data.cert_name}..."
-        
+
         # Default implementation: import certificate then apply to VPN service
         yield "📥 Importing certificate..."
         import_success = await self.import_certificate(cert_data)
-        
+
         if not import_success:
             yield "❌ Certificate import failed"
             return
-        
+
         yield "✅ Certificate imported successfully"
         yield "🔧 Applying certificate to SSL VPN service..."
-        
+
         apply_success = await self.apply_certificate(cert_data.cert_name, "ssl_vpn")
-        
+
         if not apply_success:
             yield "❌ Failed to apply certificate to SSL VPN"
             return
-        
+
         yield "✅ Certificate applied to SSL VPN"
         yield "💾 Committing changes..."
-        
+
         commit_success = await self.commit_changes()
-        
+
         if commit_success:
             yield "✅ Changes committed successfully"
             yield "🎉 VPN certificate deployment completed!"

@@ -24,8 +24,15 @@
     </aside>
     <main class="main-content">
         <div class="container">
-            <h1>Manage Target Systems</h1>
-            <button id="add-target-system-btn" class="btn readonly-hide">Add Target System</button>
+            <div class="page-header">
+                <h1>Manage Target Systems</h1>
+                <div class="header-actions">
+                    <div class="search-container">
+                        <input type="text" id="search-input" placeholder="Search...">
+                    </div>
+                    <button id="add-target-system-btn" class="btn readonly-hide">Add Target System</button>
+                </div>
+            </div>
             <table id="target-systems-table" class="fixed-height-table">
                 <thead>
                     <tr>
@@ -33,6 +40,7 @@
                         <th>System Name</th>
                         <th>Type</th>
                         <th>Public IP</th>
+                        <th>VPN Port</th>
                         <th>Management Port</th>
                         <th>Actions</th>
                     </tr>
@@ -75,8 +83,10 @@
                 </div>
                 <label for="edit-ts-public-ip">Public IP Address:</label>
                 <input type="text" id="edit-ts-public-ip" required>
-                <label for="edit-ts-port">Management Port:</label>
-                <input type="number" id="edit-ts-port" placeholder="Ex. 8443" required autocomplete="off">
+                <label for="edit-ts-vpn-port">VPN Port:</label>
+                <input type="number" id="edit-ts-vpn-port" placeholder="Ex. 4433" autocomplete="off">
+                <label for="edit-ts-management-port">Management Port:</label>
+                <input type="number" id="edit-ts-management-port" placeholder="Ex. 8443" required autocomplete="off">
                 <button type="submit">Update</button>
             </form>
         </div>
@@ -115,8 +125,10 @@
                 </div>
                 <label for="ts-public-ip">Public IP Address:</label>
                 <input type="text" id="ts-public-ip" required>
-                <label for="ts-port">Management Port:</label>
-                <input type="number" id="ts-port" placeholder="Ex. 8443" required autocomplete="off">
+                <label for="ts-vpn-port">VPN Port:</label>
+                <input type="number" id="ts-vpn-port" placeholder="Ex. 4433" autocomplete="off">
+                <label for="ts-management-port">Management Port:</label>
+                <input type="number" id="ts-management-port" placeholder="Ex. 8443" required autocomplete="off">
                 <button type="button" id="test-connection-btn">Test Connection</button>
             </form>
         </div>
@@ -127,6 +139,18 @@
             <span class="close-btn">&times;</span>
             <h2>Test Results</h2>
             <div id="test-results-content"></div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="confirmation-title">Are you sure?</h2>
+            <p id="confirmation-message"></p>
+            <div class="confirmation-buttons">
+                <button id="confirm-btn">Yes</button>
+                <button id="cancel-btn">No</button>
+            </div>
         </div>
     </div>
 

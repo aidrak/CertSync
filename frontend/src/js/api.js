@@ -63,7 +63,15 @@ export async function fetchDashboardStats() {
     }
 }
 
-export async function fetchCertificates() {
+export async function fetchCertificates(showLoader = false) {
+    // Show loading indicator if requested
+    if (showLoader) {
+        const tableBody = document.querySelector('#certificates-table tbody');
+        if (tableBody) {
+            tableBody.innerHTML = '<tr><td colspan="5" class="loading-indicator">🔄 Refreshing certificates...</td></tr>';
+        }
+    }
+    
     try {
         const [certs, dnsProviders] = await Promise.all([
             safeFetch(`${API_URL}/certificates/`),
@@ -73,6 +81,10 @@ export async function fetchCertificates() {
         return certs;
     } catch (error) {
         // Error is handled by safeFetch
+        const tableBody = document.querySelector('#certificates-table tbody');
+        if (tableBody && showLoader) {
+            tableBody.innerHTML = '<tr><td colspan="5" class="error-indicator">❌ Failed to load certificates. Please refresh the page.</td></tr>';
+        }
         return [];
     }
 }

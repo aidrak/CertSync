@@ -187,8 +187,16 @@ function setupSettingsButtons() {
     if (viewAllCertsBtn) {
         const newBtn = viewAllCertsBtn.cloneNode(true);
         viewAllCertsBtn.parentNode.replaceChild(newBtn, viewAllCertsBtn);
-        newBtn.addEventListener('click', () => {
-            window.location.href = '/certificates.html';
+        newBtn.addEventListener('click', async () => {
+            try {
+                const certs = await safeFetch(`${API_URL}/certificates/raw`);
+                const modal = document.getElementById('raw-certs-modal');
+                const pre = document.getElementById('raw-certs-json');
+                pre.textContent = JSON.stringify(certs, null, 2);
+                showModal(modal);
+            } catch (error) {
+                // Error is handled by safeFetch
+            }
         });
     }
 }

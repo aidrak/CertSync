@@ -2,6 +2,7 @@ import asyncio
 from typing import Dict, List, Deque
 from collections import deque
 
+
 class LogStreamer:
     def __init__(self):
         self.subscribers: Dict[str, List[asyncio.Queue]] = {}
@@ -11,15 +12,15 @@ class LogStreamer:
     async def subscribe(self, target: str) -> asyncio.Queue:
         if target not in self.subscribers:
             self.subscribers[target] = []
-        
+
         queue = asyncio.Queue()
         self.subscribers[target].append(queue)
-        
+
         # Send history if it exists
         if target in self.history:
             for msg in self.history[target]:
                 await queue.put(msg)
-                
+
         return queue
 
     def unsubscribe(self, target: str, queue: asyncio.Queue):
@@ -42,5 +43,6 @@ class LogStreamer:
     def clear_history(self, target: str):
         if target in self.history:
             del self.history[target]
+
 
 log_streamer = LogStreamer()

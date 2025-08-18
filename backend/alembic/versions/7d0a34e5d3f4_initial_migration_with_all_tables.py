@@ -1,16 +1,16 @@
-"""Rename port to management_port
+"""Initial migration with all tables
 
-Revision ID: 241610651eae
-Revises:
-Create Date: 2025-08-16 22:56:42.113989
+Revision ID: 7d0a34e5d3f4
+Revises: 241610651eae
+Create Date: 2025-08-17 15:56:30.016635
 
 """
 from typing import Sequence, Union
 
 
 # revision identifiers, used by Alembic.
-revision: str = "241610651eae"
-down_revision: Union[str, Sequence[str], None] = None
+revision: str = "7d0a34e5d3f4"
+down_revision: Union[str, Sequence[str], None] = "241610651eae"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

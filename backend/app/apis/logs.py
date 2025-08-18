@@ -1,6 +1,6 @@
 import logging
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 import asyncio
@@ -17,26 +17,37 @@ from sqlalchemy.orm import joinedload
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+
 @router.get("/", response_model=List[Log])
 def read_logs(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user),
 ):
     """
     Retrieve logs from the database.
     """
-    logger.debug(f"User '{current_user.username}' reading logs with skip: {skip}, limit: {limit}")
-    logs = db.query(crud_log.models.Log).options(joinedload(crud_log.models.Log.user)).order_by(crud_log.models.Log.timestamp.desc()).offset(skip).limit(limit).all()
+    logger.debug(
+        f"User '{current_user.username}' reading logs with skip: {skip}, limit: {limit}"
+    )
+    logs = (
+        db.query(crud_log.models.Log)
+        .options(joinedload(crud_log.models.Log.user))
+        .order_by(crud_log.models.Log.timestamp.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return logs
+
 
 @router.post("/frontend/", status_code=201)
 def create_frontend_log(
     log: FrontendLogCreate,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_optional_current_user)
+    current_user: UserModel = Depends(get_optional_current_user),
 ):
     """
     Receive and process a log entry from the frontend.
@@ -48,21 +59,25 @@ def create_frontend_log(
         user_id = user_schema.id
         username = user_schema.username
 
-    logger.info(f"Received frontend log from user '{username}' - Level: {log.level}, Message: {log.message}, Extra: {log.extra}")
-    
+    logger.info(
+        f"Received frontend log from user '{username}' - Level: {log.level}, "
+        f"Message: {log.message}, Extra: {log.extra}"
+    )
+
     target_url = "Unknown URL"
     if log.extra:
-        target_url = log.extra.get('url', "Unknown URL")
+        target_url = log.extra.get("url", "Unknown URL")
 
     log_data = LogCreate(
         action="Frontend Event",
         target=target_url,
         level=log.level.upper(),
-        message=log.message
+        message=log.message,
     )
     crud_log.create_log(db=db, log=log_data, user_id=user_id)
-    
+
     return {"status": "ok"}
+
 
 @router.get("/stream/{target}")
 async def stream_logs(request: Request, target: str):
@@ -70,13 +85,13 @@ async def stream_logs(request: Request, target: str):
     Stream logs for a specific target using Server-Sent Events.
     """
     queue = await log_streamer.subscribe(target)
-    
+
     async def event_generator():
         try:
             while True:
                 if await request.is_disconnected():
                     break
-                
+
                 try:
                     message = await asyncio.wait_for(queue.get(), timeout=15)
                     yield {"data": message}

@@ -1,14 +1,29 @@
+"""
+This script configures the Alembic migration environment.
+
+It is used to programmatically set up the migration context for both offline
+and online modes. The script imports the application's database models so that
+Alembic's autogenerate feature can detect schema changes. Although the models
+are not explicitly used in this file, they are necessary for Alembic to
+function correctly.
+"""
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-import sys
-import os
-
-# Add the app directory to the Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from app.db.database import Base
+from app.db.models import (  # noqa
+    User,  # noqa
+    Log,  # noqa
+    DnsProviderAccount,  # noqa
+    SystemSetting,  # noqa
+    TargetSystem,  # noqa
+    Certificate,  # noqa
+    Hostname,  # noqa
+    Deployment,  # noqa
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -21,7 +36,6 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from app.db.database import Base
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -68,9 +82,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

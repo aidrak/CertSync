@@ -24,3 +24,5 @@ python-jose[cryptography]
 python-multipart
 dnspython
 sse-starlette
+pydantic-settings
+
