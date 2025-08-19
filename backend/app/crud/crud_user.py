@@ -1,8 +1,10 @@
 import logging
+
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+
 from ..db import models
 from ..schemas import schemas
-from passlib.context import CryptContext
 
 logger = logging.getLogger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -25,9 +27,7 @@ def get_user_by_username(db: Session, username: str):
 def create_user(db: Session, user: schemas.UserCreate):
     logger.debug(f"Creating new user with username: {user.username}")
     hashed_password = pwd_context.hash(user.password)
-    db_user = models.User(
-        username=user.username, hashed_password=hashed_password, role=user.role
-    )
+    db_user = models.User(username=user.username, hashed_password=hashed_password, role=user.role)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)

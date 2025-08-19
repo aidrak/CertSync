@@ -1,32 +1,30 @@
+import logging
 from typing import Optional
-from fastapi import Depends, HTTPException, status, Request
+
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+
 from . import crud
-from .schemas.schemas import TokenData
 from .core import security
 from .db.database import get_db
 from .db.models import User, UserRole
-import logging
+from .schemas.schemas import TokenData
 
 logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 
-def get_current_user(
-    db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
-) -> User:
+def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(
-            token, security.SECRET_KEY, algorithms=[security.ALGORITHM]
-        )
+        payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
@@ -39,9 +37,7 @@ def get_current_user(
     return user
 
 
-def get_optional_current_user(
-    request: Request, db: Session = Depends(get_db)
-) -> Optional[User]:
+def get_optional_current_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
     """
     Returns the current user if a valid token is provided, otherwise returns None.
     Does not raise an exception for invalid or missing tokens.
@@ -50,8 +46,8 @@ def get_optional_current_user(
     if token:
         # Expecting "Bearer <token>"
         parts = token.split()
-        if len(parts) == 2 and parts[0] == "Bearer":
-            token = parts[1]
+        if len(parts) == 2 and parts == "Bearer":
+            token = parts
         else:
             return None  # Invalid format
 
@@ -59,9 +55,7 @@ def get_optional_current_user(
         return None
 
     try:
-        payload = jwt.decode(
-            token, security.SECRET_KEY, algorithms=[security.ALGORITHM]
-        )
+        payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             return None
@@ -135,9 +129,7 @@ def require_any_authenticated(current_user: User = Depends(get_current_user)) ->
         UserRole.technician,
         UserRole.readonly,
     ]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Authentication required"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authentication required")
     return current_user
 
 
@@ -169,9 +161,7 @@ def get_current_user_sse(request: Request, db: Session = Depends(get_db)) -> Use
 
     try:
         logger.info("Attempting to decode JWT token")
-        payload = jwt.decode(
-            token, security.SECRET_KEY, algorithms=[security.ALGORITHM]
-        )
+        payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
         username: str = payload.get("sub")
         logger.info(f"JWT decode successful, username: {username}")
 
@@ -193,7 +183,5 @@ def get_current_user_sse(request: Request, db: Session = Depends(get_db)) -> Use
         logger.error(f"User not found in database: {token_data.username}")
         raise credentials_exception
 
-    logger.info(
-        f"SSE authentication successful for user: {user.username} (role: {user.role})"
-    )
+    logger.info(f"SSE authentication successful for user: {user.username} (role: {user.role})")
     return user

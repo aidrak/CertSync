@@ -67,7 +67,7 @@ async def handle_certificate_request(
             dns_provider = DnsProviderFactory.get_provider(
                 provider_type=dns_account.provider_type,
                 credentials=credentials,
-                domain=str(dns_account.domain),
+                domain=str(dns_account.managed_domain),
             )
             yield f"✅ DNS provider '{dns_account.provider_type}' initialized."
         except Exception as e:
@@ -93,10 +93,7 @@ async def handle_certificate_request(
 
         # 5. Request Certificate
         logger.info("Step 5: Requesting certificate from Let's Encrypt...")
-        yield (
-            "📋 Step 5: Requesting certificate from Let's Encrypt... "
-            "(this may take a moment)"
-        )
+        yield ("📋 Step 5: Requesting certificate from Let's Encrypt... (this may take a moment)")
 
         private_key, cert_body, _, logs = (
             None,
@@ -106,14 +103,9 @@ async def handle_certificate_request(
         )  # Initialize to avoid UnboundLocalError
         try:
             yield "🔍 DEBUG: Getting hostname from database..."
-            hostname = crud_hostname.get_hostname(
-                db, hostname_id=cert_request.hostname_id
-            )
+            hostname = crud_hostname.get_hostname(db, hostname_id=cert_request.hostname_id)
             if not hostname:
-                yield (
-                    f"❌ Error: Hostname not found for ID "
-                    f"{cert_request.hostname_id}."
-                )
+                yield (f"❌ Error: Hostname not found for ID {cert_request.hostname_id}.")
                 db.rollback()
                 return
 
@@ -121,14 +113,10 @@ async def handle_certificate_request(
             domains = [fqdn] + [d for d in cert_request.domains if d != fqdn]
             yield f"🔍 DEBUG: Requesting certificate for domains: {domains}"
 
-            print(
-                "DEBUG_GLOBAL: CALLING le_service.request_certificate"
-            )  # <--- AGGRESSIVE PRINT
+            print("DEBUG_GLOBAL: CALLING le_service.request_certificate")  # <--- AGGRESSIVE PRINT
             sys.stdout.flush()  # <--- FORCE FLUSH
 
-            private_key, cert_body, _, logs = await le_service.request_certificate(
-                domains
-            )
+            private_key, cert_body, _, logs = await le_service.request_certificate(domains)
 
             print(
                 "DEBUG_GLOBAL: RETURNED from le_service.request_certificate. "
@@ -157,12 +145,9 @@ async def handle_certificate_request(
             # Immediately check for None/empty data that might
             # cause errors later
             if not private_key or not cert_body:
-                yield (
-                    "❌ Critical: LE service returned empty private key " "or cert body."
-                )
+                yield ("❌ Critical: LE service returned empty private key or cert body.")
                 logger.error(
-                    "Critical: LE service returned empty private key "
-                    "or cert body, aborting save."
+                    "Critical: LE service returned empty private key or cert body, aborting save."
                 )
                 db.rollback()
                 return
@@ -176,15 +161,11 @@ async def handle_certificate_request(
             # New: Try-except around the log creation loop
             try:
                 for idx, log_message in enumerate(logs):
-                    yield (
-                        f"🔍 DEBUG: Processing LE log message {idx+1}: " f"{log_message}"
-                    )
+                    yield (f"🔍 DEBUG: Processing LE log message {idx + 1}: {log_message}")
                     # Ensure log message isn't too long if your
                     # DB column has a limit
                     truncated_message = (
-                        (log_message[:997] + "...")
-                        if len(log_message) > 1000
-                        else log_message
+                        (log_message[:997] + "...") if len(log_message) > 1000 else log_message
                     )
                     crud_log.create_log(
                         db,
@@ -198,13 +179,8 @@ async def handle_certificate_request(
                     )
                 yield "✅ All LE log messages processed."
             except Exception as e_log_loop:
-                yield (
-                    f"❌ CRITICAL ERROR during LE log message "
-                    f"processing: {e_log_loop}"
-                )
-                yield (
-                    f"🔍 DEBUG: Log processing traceback: " f"{traceback.format_exc()}"
-                )
+                yield (f"❌ CRITICAL ERROR during LE log message processing: {e_log_loop}")
+                yield (f"🔍 DEBUG: Log processing traceback: {traceback.format_exc()}")
                 crud_log.create_log(
                     db,
                     log=schemas.LogCreate(
@@ -218,20 +194,14 @@ async def handle_certificate_request(
                 db.rollback()
                 return
 
-            logger.info(
-                "--- Certificate generation completed, " "proceeding to save... ---"
-            )
-            yield (
-                "🔍 DEBUG: Certificate generation completed, " "proceeding to save..."
-            )
+            logger.info("--- Certificate generation completed, proceeding to save... ---")
+            yield ("🔍 DEBUG: Certificate generation completed, proceeding to save...")
 
         # This catches errors directly from le_service.request_certificate
         except Exception as e_le_request:
             error_message = f"❌ Error requesting LE certificate: {e_le_request}"
             yield error_message
-            yield (
-                f"🔍 DEBUG: Full traceback for LE request: " f"{traceback.format_exc()}"
-            )
+            yield (f"🔍 DEBUG: Full traceback for LE request: {traceback.format_exc()}")
             crud_log.create_log(
                 db,
                 log=schemas.LogCreate(
@@ -252,8 +222,7 @@ async def handle_certificate_request(
         # New: Try-except around the save operations
         try:
             logger.debug(
-                f"About to save certificate with "
-                f"name='{cert_request.name}', common_name='{fqdn}'"
+                f"About to save certificate with name='{cert_request.name}', common_name='{fqdn}'"
             )
             logger.debug(f"Certificate body length: {len(cert_body)} chars")
             logger.debug(f"Private key length: {len(private_key)} chars")
@@ -290,13 +259,8 @@ async def handle_certificate_request(
                 dns_provider_account_id=cert_request.dns_provider_account_id,
             )
 
-            logger.debug(
-                "Certificate model created. " "Now attempting to update hostname."
-            )
-            yield (
-                "🔍 DEBUG: Certificate model created. "
-                "Now attempting to update hostname."
-            )
+            logger.debug("Certificate model created. Now attempting to update hostname.")
+            yield ("🔍 DEBUG: Certificate model created. Now attempting to update hostname.")
 
             hostname_update = cert_schema.HostnameUpdate(
                 certificate_id=db_certificate.id  # type: ignore
@@ -317,9 +281,7 @@ async def handle_certificate_request(
                 f"{updated_hostname.certificate_id if updated_hostname else 'None'}"
             )
 
-            logger.info(
-                "Committing all changes to database " "(certificate, hostname, logs)..."
-            )
+            logger.info("Committing all changes to database (certificate, hostname, logs)...")
             yield "🔍 DEBUG: Committing all changes to database..."
             db.commit()
 
@@ -328,12 +290,9 @@ async def handle_certificate_request(
                 db.refresh(updated_hostname)
 
             logger.info(
-                f"Successfully saved certificate ID {db_certificate.id} "
-                "and linked to hostname."
+                f"Successfully saved certificate ID {db_certificate.id} and linked to hostname."
             )
-            success_message = (
-                f"✅ Certificate ID {db_certificate.id} " "saved and linked to hostname."
-            )
+            success_message = f"✅ Certificate ID {db_certificate.id} saved and linked to hostname."
             yield success_message
 
             crud_log.create_log(
@@ -355,10 +314,7 @@ async def handle_certificate_request(
                 exc_info=True,
             )
             yield f"❌ Error saving certificate to database: {e_save}"
-            yield (
-                f"🔍 DEBUG: Full error traceback during save: "
-                f"{traceback.format_exc()}"
-            )
+            yield (f"🔍 DEBUG: Full error traceback during save: {traceback.format_exc()}")
             crud_log.create_log(
                 db,
                 log=schemas.LogCreate(
@@ -375,8 +331,7 @@ async def handle_certificate_request(
     except Exception as e_overall:
         yield f"❌ An unexpected error occurred: {e_overall}"
         logger.error(
-            f"Unexpected error in handle_certificate_request: "
-            f"{e_overall}\n{traceback.format_exc()}"
+            f"Unexpected error in handle_certificate_request: {e_overall}\n{traceback.format_exc()}"
         )
         crud_log.create_log(
             db,

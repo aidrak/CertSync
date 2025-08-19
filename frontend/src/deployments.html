@@ -26,12 +26,12 @@
         <div class="container">
             <div class="page-header">
                 <h1>Manage Deployments</h1>
-                <div class="header-actions">
-                    <div class="search-container">
-                        <input type="text" id="search-input" placeholder="Search...">
-                    </div>
-                    <button id="add-deployment-btn" class="btn readonly-hide">Add Deployment</button>
+                <div class="search-container">
+                    <input type="text" id="search-input" placeholder="Search...">
                 </div>
+            </div>
+            <div class="page-actions">
+                <button id="add-deployment-btn" class="btn readonly-hide">Add Deployment</button>
             </div>
             <table id="deployments-table" class="fixed-height-table">
                 <thead>
@@ -71,7 +71,7 @@
                 </select>
                 <label for="deployment-auto-renewal">Auto-Renewal:</label>
                 <input type="checkbox" id="deployment-auto-renewal" class="toggle-switch" checked>
-                <button type="submit" id="save-deployment-btn">Save Deployment</button>
+                <button type="button" id="test-deployment-btn">Deploy Certificate</button>
             </form>
         </div>
     </div>
@@ -109,6 +109,18 @@
             <h2>SSL VPN Certificate Deployment</h2>
             <div id="deployment-progress-list" style="max-height: 500px; overflow-y: auto; padding: 10px; background-color: #f8f9fa; border-radius: 5px; font-family: monospace;">
                 <!-- Progress messages will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="confirmation-title">Are you sure?</h2>
+            <p id="confirmation-message"></p>
+            <div class="confirmation-buttons">
+                <button id="confirm-btn">Yes</button>
+                <button id="cancel-btn">No</button>
             </div>
         </div>
     </div>

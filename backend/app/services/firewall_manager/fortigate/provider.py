@@ -1,8 +1,10 @@
-import aiohttp
-import ssl
 import logging
+import ssl
 from typing import AsyncIterator
-from ..base import FirewallBase, CertificateData
+
+import aiohttp
+
+from ..base import CertificateData, FirewallBase
 from .cert_manager import FortiGateCertManager
 from .deploy import FortiGateDeployManager
 
@@ -46,9 +48,7 @@ class FortiGateManager(FirewallBase):
                 payload = self.cert_manager._prepare_certificate_data(cert_data)
 
                 # Check if certificate exists to decide between POST (create) and PUT (update)
-                if await self.cert_manager.check_certificate_exists(
-                    session, cert_data.cert_name
-                ):
+                if await self.cert_manager.check_certificate_exists(session, cert_data.cert_name):
                     logger.info(
                         f"Updating existing certificate {cert_data.cert_name} on {self.hostname}"
                     )
@@ -70,18 +70,14 @@ class FortiGateManager(FirewallBase):
                     )
 
                 if status == 200:
-                    logger.info(
-                        f"Successfully processed certificate {cert_data.cert_name}"
-                    )
+                    logger.info(f"Successfully processed certificate {cert_data.cert_name}")
                     return True
                 else:
                     logger.error(f"Failed to process certificate: {status} - {result}")
                     return False
 
         except Exception as e:
-            logger.error(
-                f"Error importing certificate to FortiGate {self.hostname}: {str(e)}"
-            )
+            logger.error(f"Error importing certificate to FortiGate {self.hostname}: {str(e)}")
             return False
 
     async def apply_certificate(self, cert_name: str, service: str) -> bool:
@@ -108,9 +104,7 @@ class FortiGateManager(FirewallBase):
         yield "This is a placeholder. Use the dedicated Test Connection feature."
         return
 
-    async def deploy_vpn_certificate(
-        self, cert_data: CertificateData
-    ) -> AsyncIterator[str]:
+    async def deploy_vpn_certificate(self, cert_data: CertificateData) -> AsyncIterator[str]:
         """Deploy certificate to FortiGate SSL VPN service."""
         async for message in self.deploy_manager.deploy_vpn_certificate(cert_data):
             yield message

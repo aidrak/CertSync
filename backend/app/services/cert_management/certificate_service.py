@@ -32,10 +32,7 @@ class CertificateService:
                 logger.error("Certificate body is required")
                 return False
 
-            if (
-                not cert_data.get("private_key")
-                or not cert_data.get("private_key").strip()
-            ):
+            if not cert_data.get("private_key") or not cert_data.get("private_key").strip():
                 logger.error("Private key is required")
                 return False
 

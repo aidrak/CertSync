@@ -1,5 +1,6 @@
 import importlib
 import logging
+
 from .base import DnsProviderBase
 
 logger = logging.getLogger(__name__)
@@ -34,11 +35,7 @@ class DnsProviderFactory:
             module = importlib.import_module(
                 f".{provider_name}.validator", package="app.services.dns_providers"
             )
-            validator_class = getattr(
-                module, f"{provider_name.capitalize()}TokenTester"
-            )
+            validator_class = getattr(module, f"{provider_name.capitalize()}TokenTester")
             return validator_class(api_token=credentials.get("token"), domain=domain)
         except (ImportError, AttributeError) as e:
-            raise ValueError(
-                f"Unsupported DNS provider validator: {provider_name}"
-            ) from e
+            raise ValueError(f"Unsupported DNS provider validator: {provider_name}") from e

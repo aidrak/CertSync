@@ -1,5 +1,6 @@
 import logging
 import secrets
+
 from .validator import SonicWallValidator
 
 logger = logging.getLogger(__name__)
@@ -29,9 +30,7 @@ class SonicWallCertManager:
             return False
 
         logger.info(f"Importing certificate '{cert_name}' from {ftp_url}...")
-        success = await self.validator.import_certificate(
-            session, cert_name, ftp_url, pfx_password
-        )
+        success = await self.validator.import_certificate(session, cert_name, ftp_url, pfx_password)
 
         await self.validator.logout(session)
         return success

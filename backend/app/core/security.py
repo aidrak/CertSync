@@ -1,9 +1,11 @@
-from cryptography.fernet import Fernet
-from .config import settings
 from datetime import datetime, timedelta
 from typing import Optional
+
+from cryptography.fernet import Fernet
 from jose import JWTError, jwt
 from pydantic import BaseModel
+
+from .config import settings
 
 # Initialize Fernet with the encryption key from settings
 fernet = Fernet(settings.ENCRYPTION_KEY.encode())

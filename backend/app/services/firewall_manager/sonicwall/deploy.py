@@ -74,9 +74,7 @@ class SonicWallDeployManager:
                         url, headers=headers, json=data, timeout=timeout
                     )
             elif method.upper() == "PUT":
-                response_obj = await session.put(
-                    url, headers=headers, data=data, timeout=timeout
-                )
+                response_obj = await session.put(url, headers=headers, data=data, timeout=timeout)
             elif method.upper() == "GET":
                 response_obj = await session.get(url, headers=headers, timeout=timeout)
 
@@ -87,8 +85,7 @@ class SonicWallDeployManager:
 
                     try:
                         if (
-                            "application/json"
-                            in response.headers.get("Content-Type", "").lower()
+                            "application/json" in response.headers.get("Content-Type", "").lower()
                             or status >= 400
                             or (
                                 status < 400
@@ -114,9 +111,7 @@ class SonicWallDeployManager:
         logger.info("Authenticating to SonicWall...")
 
         auth_data = {"override": True}
-        status, response = await self._make_request(
-            session, "POST", "/auth", data=auth_data
-        )
+        status, response = await self._make_request(session, "POST", "/auth", data=auth_data)
 
         if status not in [200, 201, 204]:
             logger.error(f"Authentication failed: HTTP {status}")
@@ -124,9 +119,7 @@ class SonicWallDeployManager:
             return False
 
         # After authentication, ensure we're in a known CLI state
-        await self._make_request(
-            session, "POST", "/direct/cli", data="exit\nexit\nexit"
-        )
+        await self._make_request(session, "POST", "/direct/cli", data="exit\nexit\nexit")
 
         logger.info("Authentication successful")
         return True
@@ -162,15 +155,11 @@ class SonicWallDeployManager:
             end_entity_cert, ca_chain = self._split_certificate_chain(cert_pem)
 
             # Create temporary files
-            with tempfile.NamedTemporaryFile(
-                mode="wb", suffix=".crt", delete=False
-            ) as cert_file:
+            with tempfile.NamedTemporaryFile(mode="wb", suffix=".crt", delete=False) as cert_file:
                 cert_file.write(end_entity_cert.encode("utf-8"))
                 cert_file_path = cert_file.name
 
-            with tempfile.NamedTemporaryFile(
-                mode="wb", suffix=".key", delete=False
-            ) as key_file:
+            with tempfile.NamedTemporaryFile(mode="wb", suffix=".key", delete=False) as key_file:
                 key_file.write(key_pem.encode("utf-8"))
                 key_file_path = key_file.name
 
@@ -230,9 +219,7 @@ class SonicWallDeployManager:
 
         return b""  # Return empty bytes if creation failed
 
-    async def upload_certificate_to_ftp(
-        self, cert_data: CertificateData, pfx_password: str
-    ) -> str:
+    async def upload_certificate_to_ftp(self, cert_data: CertificateData, pfx_password: str) -> str:
         """Upload PFX certificate to FTP server."""
         logger.info("Creating and uploading certificate to FTP...")
 
@@ -259,9 +246,7 @@ class SonicWallDeployManager:
                 if self.ftp_config.get("path"):
                     try:
                         ftp.cwd(self.ftp_config["path"])
-                        logger.info(
-                            f"Changed to FTP directory: {self.ftp_config['path']}"
-                        )
+                        logger.info(f"Changed to FTP directory: {self.ftp_config['path']}")
                     except ftplib.error_perm as e:
                         logger.warning(
                             f"Could not change to directory {self.ftp_config['path']}: {e}"
@@ -360,9 +345,7 @@ exit"""
                             logger.warning(f"Error deleting certificate: {message}")
                             return False
                         if "certificate has been successfully deleted" in message:
-                            logger.info(
-                                f"Successfully deleted existing certificate '{cert_name}'"
-                            )
+                            logger.info(f"Successfully deleted existing certificate '{cert_name}'")
                             return True
                         if "success" in message or "not found" in message:
                             logger.info(f"Certificate deletion completed: {message}")
@@ -392,9 +375,7 @@ exit
         if status and status in [200, 201, 204]:
             if isinstance(response, dict):
                 status_info = response.get("status", {})
-                info_list = (
-                    status_info.get("info", []) if isinstance(status_info, dict) else []
-                )
+                info_list = status_info.get("info", []) if isinstance(status_info, dict) else []
 
                 for info in info_list:
                     message = info.get("message", "").lower()
@@ -456,14 +437,12 @@ exit
             logger.error(f"Response: {response}")
             return False
 
-    async def configure_ssl_vpn_certificate(self, session, cert_name: str) -> bool:
+    async def configure_ssl_vpn_certificate(self, session, cert_name: str) -> tuple[bool, str]:
         """Configure the imported certificate for SSL VPN using the proven working method."""
         logger.info(f"Configuring SSL VPN to use certificate '{cert_name}'...")
 
         # Ensure we're at the root level CLI
-        await self._make_request(
-            session, "POST", "/direct/cli", data="exit\nexit\nexit\nexit"
-        )
+        await self._make_request(session, "POST", "/direct/cli", data="exit\nexit\nexit\nexit")
 
         # Use the proven working CLI path from sonic-vpn-2.py
         ssl_vpn_config = f"""ssl-vpn server
@@ -497,20 +476,24 @@ exit
                         logger.info(f"Success message: {message}")
 
             logger.info("SSL VPN certificate configuration successful")
-            return True
+            return True, "Success"
         else:
-            logger.error(f"SSL VPN configuration failed: HTTP {status}")
+            error_msg = f"HTTP {status}"
+            if response and isinstance(response, dict):
+                if 'status' in response and 'info' in response['status']:
+                    for info in response['status']['info']:
+                        if 'message' in info:
+                            error_msg += f" - {info['message']}"
+            logger.error(f"SSL VPN configuration failed: {error_msg}")
             logger.error(f"Response: {response}")
-            return False
+            return False, error_msg
 
     async def commit_changes(self, session) -> bool:
         """Commit configuration changes."""
         logger.info("Committing configuration changes...")
 
         # Ensure we are at the root prompt
-        await self._make_request(
-            session, "POST", "/direct/cli", data="exit\nexit\nexit\nexit"
-        )
+        await self._make_request(session, "POST", "/direct/cli", data="exit\nexit\nexit\nexit")
 
         cli_command = "commit"
         status, response = await self._make_request(
@@ -524,16 +507,11 @@ exit
             ):
                 logger.info("Configuration committed successfully")
                 return True
-            elif (
-                "Command succeeded" in str(response)
-                or "success" in str(response).lower()
-            ):
+            elif "Command succeeded" in str(response) or "success" in str(response).lower():
                 logger.info("Configuration committed successfully")
                 return True
             else:
-                logger.warning(
-                    f"Commit status inconclusive: {response}"
-                )
+                logger.warning(f"Commit status inconclusive: {response}")
                 return False
         else:
             logger.error(f"Failed to commit configuration: {response}")
@@ -544,9 +522,7 @@ exit
         logger.info("Verifying SSL VPN certificate configuration...")
 
         # Exit any config modes first to ensure show commands work
-        await self._make_request(
-            session, "POST", "/direct/cli", data="exit\nexit\nexit\nexit"
-        )
+        await self._make_request(session, "POST", "/direct/cli", data="exit\nexit\nexit\nexit")
 
         # Use the exact show command that works (from sonic-vpn-2.py line 177)
         cli_command = "show ssl-vpn server\nexit"
@@ -566,15 +542,10 @@ exit
 
             # Check if our certificate name appears in the response (exact match logic from sonic-vpn-2.py)  # noqa: E501
             if cert_name in response_text:
-                logger.info(
-                    f"✅ Found certificate '{cert_name}' in SSL VPN configuration!"
-                )
+                logger.info(f"✅ Found certificate '{cert_name}' in SSL VPN configuration!")
                 return True
             else:
-                logger.warning(
-                    f"⚠️ Certificate '{cert_name}' not found in "
-                    "SSL VPN config"
-                )
+                logger.warning(f"⚠️ Certificate '{cert_name}' not found in SSL VPN config")
                 return False
         else:
             logger.error(f"❌ Verification failed: {response}")
@@ -584,9 +555,7 @@ exit
         """Check if a specific certificate exists using the working API method."""
         try:
             # Exit to root first
-            await self._make_request(
-                session, "POST", "/direct/cli", data="exit\nexit\nexit\nexit"
-            )
+            await self._make_request(session, "POST", "/direct/cli", data="exit\nexit\nexit\nexit")
 
             # Use the proven working command format
             cli_command = f"show certificate name {cert_name} status\nexit"
@@ -597,14 +566,9 @@ exit
             if status in [200, 201, 204]:
                 # If we get a successful response, the certificate exists
                 response_text = (
-                    json.dumps(response)
-                    if isinstance(response, dict)
-                    else str(response)
+                    json.dumps(response) if isinstance(response, dict) else str(response)
                 )
-                if (
-                    cert_name in response_text
-                    and "certificate" in response_text.lower()
-                ):
+                if cert_name in response_text and "certificate" in response_text.lower():
                     logger.info(f"✅ Certificate '{cert_name}' exists")
                     return True
                 else:
@@ -616,10 +580,7 @@ exit
                     info_list = response.get("status", {}).get("info", [])
                     for info in info_list:
                         message = info.get("message", "").lower()
-                        if (
-                            "not found" in message
-                            or "not a reasonable value" in message
-                        ):
+                        if "not found" in message or "not a reasonable value" in message:
                             logger.info(f"❌ Certificate '{cert_name}' does not exist")
                             return False
 
@@ -631,9 +592,7 @@ exit
             logger.error(f"Error checking certificate '{cert_name}': {e}")
             return False
 
-    def _generate_recent_ssl_vpn_names(
-        self, current_cert_name: str, days_back: int = 7
-    ) -> list:
+    def _generate_recent_ssl_vpn_names(self, current_cert_name: str, days_back: int = 7) -> list:
         """Generate possible SSL-VPN certificate names from recent days."""
         from datetime import datetime, timedelta
 
@@ -664,32 +623,22 @@ exit
                 if test_name != current_cert_name and test_name not in possible_names:
                     possible_names.append(test_name)
 
-        logger.info(
-            f"Generated {len(possible_names)} possible certificate names to check"
-        )
+        logger.info(f"Generated {len(possible_names)} possible certificate names to check")
         return possible_names
 
-    async def cleanup_old_ssl_vpn_certificates(
-        self, session, current_cert_name: str
-    ) -> bool:
+    async def cleanup_old_ssl_vpn_certificates(self, session, current_cert_name: str) -> bool:
         """Clean up old SSL-VPN certificates using targeted checking approach."""
-        logger.info(
-            f"Cleaning up old SSL-VPN certificates (keeping '{current_cert_name}')..."
-        )
+        logger.info(f"Cleaning up old SSL-VPN certificates (keeping '{current_cert_name}')...")
 
         try:
             # Generate list of possible old certificate names
             possible_old_names = self._generate_recent_ssl_vpn_names(current_cert_name)
-            logger.info(
-                f"Checking {len(possible_old_names)} possible old certificate names..."
-            )
+            logger.info(f"Checking {len(possible_old_names)} possible old certificate names...")
 
             # Check which certificates actually exist
             existing_old_certs = []
             for cert_name in possible_old_names:
-                if await self.check_certificate_exists_by_name(
-                    session, cert_name
-                ):
+                if await self.check_certificate_exists_by_name(session, cert_name):
                     existing_old_certs.append(cert_name)
 
                 # Small delay to avoid overwhelming the API
@@ -733,10 +682,7 @@ exit"""
                         else str(delete_response)
                     )
 
-                    if any(
-                        indicator in response_text.lower()
-                        for indicator in success_indicators
-                    ):
+                    if any(indicator in response_text.lower() for indicator in success_indicators):
                         logger.info(f"✅ Successfully deleted certificate: {old_cert}")
                         cleanup_count += 1
                     else:
@@ -755,9 +701,7 @@ exit"""
 
             # Verify some deletions worked by checking a few certificates
             if cleanup_count > 0:
-                logger.info(
-                    f"Cleanup completed: {cleanup_count} certificates processed"
-                )
+                logger.info(f"Cleanup completed: {cleanup_count} certificates processed")
 
                 # Verify a couple deletions by checking if certificates still exist
                 verification_count = min(3, len(existing_old_certs))
@@ -765,14 +709,15 @@ exit"""
 
                 for cert_name in existing_old_certs[:verification_count]:
                     await asyncio.sleep(0.5)
-                    if not await self.check_certificate_exists_by_name(
-                        session, cert_name
-                    ):
+                    if not await self.check_certificate_exists_by_name(session, cert_name):
                         verified_deletions += 1
 
                 if verified_deletions > 0:
                     logger.info(
-                        f"✅ Verified {verified_deletions}/{verification_count} deletions successful"
+                        (
+                            "✅ Verified"
+                            f" {verified_deletions}/{verification_count} deletions successful"
+                        )
                     )
                     return True
                 else:
@@ -840,9 +785,7 @@ exit"""
         logger.info(f"Generated SSL VPN certificate name: {cert_name}")
         return cert_name
 
-    async def deploy_vpn_certificate(
-        self, cert_data: CertificateData
-    ) -> AsyncIterator[str]:
+    async def deploy_vpn_certificate(self, cert_data: CertificateData) -> AsyncIterator[str]:
         """Deploy certificate to SSL VPN service."""
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
@@ -856,10 +799,7 @@ exit"""
                 yield f"  - Certificate: {cert_data.cert_name}"
 
                 # Check for staging certificate and warn user
-                if (
-                    "STAGING" in cert_data.cert_body
-                    or "staging" in cert_data.cert_body.lower()
-                ):
+                if "STAGING" in cert_data.cert_body or "staging" in cert_data.cert_body.lower():
                     yield "  - ⚠️ WARNING: This appears to be a Let's Encrypt STAGING certificate"
                     yield "  - ⚠️ Staging certificates may not be trusted by all systems"
                     yield "  - ⚠️ For production use, please use a production Let's Encrypt certificate"  # noqa: E501
@@ -889,9 +829,7 @@ exit"""
 
                 pfx_password = settings.PFX_PASSWORD
                 try:
-                    ftp_url = await self.upload_certificate_to_ftp(
-                        cert_data, pfx_password
-                    )
+                    ftp_url = await self.upload_certificate_to_ftp(cert_data, pfx_password)
                     yield f"  - ✅ Certificate uploaded to FTP: {cert_data.cert_name}"
                 except Exception as e:
                     yield f"  - ❌ FTP upload failed: {e}"
@@ -915,16 +853,19 @@ exit"""
 
                 # Step 4: Configure SSL VPN to use new certificate
                 yield "  - 🔧 Configuring SSL VPN to use the new certificate..."
-                ssl_config_success = await self.configure_ssl_vpn_certificate(
+                ssl_config_success, ssl_config_error = await self.configure_ssl_vpn_certificate(
                     session, cert_name_for_sonicwall
                 )
 
                 if not ssl_config_success:
+                    # Add delay for readability and show actual error details
+                    import asyncio
+                    await asyncio.sleep(0.5)
                     yield "  - ❌ SSL VPN configuration failed - deployment aborted"
+                    yield f"  - 📋 Error details: {ssl_config_error}"
+                    yield "  - 💡 Check that the certificate name is valid and SSL VPN service is enabled"
                     yield "  - 🧹 Cleaning up failed certificate import..."
-                    await self.delete_existing_certificate(
-                        session, cert_name_for_sonicwall
-                    )
+                    await self.delete_existing_certificate(session, cert_name_for_sonicwall)
                     return
 
                 # Step 5: Commit changes
@@ -934,9 +875,7 @@ exit"""
                 if not commit_success:
                     yield "  - ❌ Configuration commit failed - deployment aborted"
                     yield "  - 🧹 Cleaning up failed certificate import..."
-                    await self.delete_existing_certificate(
-                        session, cert_name_for_sonicwall
-                    )
+                    await self.delete_existing_certificate(session, cert_name_for_sonicwall)
                     return
 
                 yield "  - ✅ Configuration committed successfully"

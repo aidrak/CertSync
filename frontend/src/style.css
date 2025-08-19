@@ -769,6 +769,10 @@ form button {
     align-items: center;
 }
 
+.page-actions {
+    margin-bottom: 15px;
+}
+
 .search-container input {
     padding: 8px 12px;
     border-radius: 6px;

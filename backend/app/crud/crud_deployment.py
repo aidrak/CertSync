@@ -1,13 +1,12 @@
-from sqlalchemy.orm import Session, joinedload
+from datetime import datetime, timedelta
+from typing import Optional
+
 from app.db import models
 from app.db.models import DeploymentStatus
-from typing import Optional
-from datetime import datetime, timedelta
+from sqlalchemy.orm import Session, joinedload
 
 
-def calculate_renewal_date(
-    certificate_expires_at: datetime, days_before: int = 30
-) -> datetime:
+def calculate_renewal_date(certificate_expires_at: datetime, days_before: int = 30) -> datetime:
     """
     Calculate the renewal date based on certificate expiration.
     Default is 30 days before expiration.
@@ -24,9 +23,7 @@ def create_deployment(
 ):
     # Get the certificate to calculate renewal date
     certificate = (
-        db.query(models.Certificate)
-        .filter(models.Certificate.id == certificate_id)
-        .first()
+        db.query(models.Certificate).filter(models.Certificate.id == certificate_id).first()
     )
 
     # Calculate next renewal date (30 days before expiration)
@@ -63,11 +60,7 @@ def get_deployments(db: Session, skip: int = 0, limit: int = 100):
 
 
 def get_deployment(db: Session, deployment_id: int):
-    return (
-        db.query(models.Deployment)
-        .filter(models.Deployment.id == deployment_id)
-        .first()
-    )
+    return db.query(models.Deployment).filter(models.Deployment.id == deployment_id).first()
 
 
 def update_deployment_status(
@@ -90,9 +83,7 @@ def update_deployment_renewal_dates_for_certificate(db: Session, certificate_id:
     """
     # Get the certificate
     certificate = (
-        db.query(models.Certificate)
-        .filter(models.Certificate.id == certificate_id)
-        .first()
+        db.query(models.Certificate).filter(models.Certificate.id == certificate_id).first()
     )
     if not certificate or not certificate.expires_at:
         return
@@ -101,7 +92,7 @@ def update_deployment_renewal_dates_for_certificate(db: Session, certificate_id:
     new_renewal_date = calculate_renewal_date(certificate.expires_at)
 
     # Update all deployments using this certificate
-    db.query(models.Deployment).filter(
-        models.Deployment.certificate_id == certificate_id
-    ).update({"next_renewal_date": new_renewal_date})
+    db.query(models.Deployment).filter(models.Deployment.certificate_id == certificate_id).update(
+        {"next_renewal_date": new_renewal_date}
+    )
     db.commit()

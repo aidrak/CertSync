@@ -1,5 +1,6 @@
-import alembic.config
 import os
+
+import alembic.config
 
 
 def run_alembic():

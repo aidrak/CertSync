@@ -1,20 +1,21 @@
 from typing import List
+
+from app.crud import crud_deployment
+from app.db import models
+from app.db.database import get_db
+from app.db.models import (
+    Certificate,
+    DeploymentStatus,
+    DnsProviderAccount,
+    TargetSystem,
+    User,
+)
+from app.dependencies import require_role
+from app.schemas import schemas
+from app.schemas.certificates import Certificate as CertificateSchema
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from app.crud import crud_deployment
-from app.schemas import schemas
-from app.schemas.certificates import Certificate as CertificateSchema
-from app.db.database import get_db
-from app.dependencies import require_role
-from app.db.models import (
-    User,
-    DnsProviderAccount,
-    Certificate,
-    TargetSystem,
-    DeploymentStatus,
-)
-from app.db import models
 
 router = APIRouter()
 
@@ -108,9 +109,9 @@ async def run_deployment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("technician")),
 ):
-    from ..services.firewall_manager.factory import FirewallManagerFactory
-    from ..services.firewall_manager.base import CertificateData
     from ..core.security import decrypt_secret
+    from ..services.firewall_manager.base import CertificateData
+    from ..services.firewall_manager.factory import FirewallManagerFactory
 
     db_deployment = crud_deployment.get_deployment(db, deployment_id=deployment_id)
     if db_deployment is None:
@@ -152,8 +153,7 @@ async def run_deployment(
 
             # Check if deployment succeeded (last message should indicate success)
             success = any(
-                "SUCCESS" in log or "successful" in log.lower()
-                for log in deployment_logs[-3:]
+                "SUCCESS" in log or "successful" in log.lower() for log in deployment_logs[-3:]
             )
 
             if success:
@@ -161,17 +161,15 @@ async def run_deployment(
                     db,
                     deployment_id=deployment_id,
                     status=DeploymentStatus.success,
-                    details="\n".join(
-                        deployment_logs[-10:]
-                    ),  # Store last 10 log messages
+                    details="\n".join(deployment_logs[-10:]),  # Store last 10 log messages
                 )
 
                 # Update last_deployed_at timestamp
                 from datetime import datetime
 
-                db.query(models.Deployment).filter(
-                    models.Deployment.id == deployment_id
-                ).update({"last_deployed_at": datetime.utcnow()})
+                db.query(models.Deployment).filter(models.Deployment.id == deployment_id).update(
+                    {"last_deployed_at": datetime.utcnow()}
+                )
                 db.commit()
 
                 return {
@@ -231,15 +229,14 @@ async def run_deployment_sse(
 
     async def deployment_stream():
         try:
-            from ..services.firewall_manager.factory import FirewallManagerFactory
-            from ..services.firewall_manager.base import CertificateData
-            from ..core.security import decrypt_secret
             from datetime import datetime
 
+            from ..core.security import decrypt_secret
+            from ..services.firewall_manager.base import CertificateData
+            from ..services.firewall_manager.factory import FirewallManagerFactory
+
             # Get deployment details
-            db_deployment = crud_deployment.get_deployment(
-                db, deployment_id=deployment_id
-            )
+            db_deployment = crud_deployment.get_deployment(db, deployment_id=deployment_id)
             if db_deployment is None:
                 yield "data: ❌ Deployment not found\n\n"
                 return
@@ -257,10 +254,12 @@ async def run_deployment_sse(
             target_system = db_deployment.target_system
 
             yield f"data: 📜 Certificate: {certificate.common_name}\n\n"
+            await asyncio.sleep(0.5)
             yield (
                 f"data: 🎯 Target System: {target_system.system_name} "
                 f"({target_system.system_type.value})\n\n"
             )
+            await asyncio.sleep(0.5)
 
             # Prepare certificate data (use original common name for VPN)
             cert_data = CertificateData(
@@ -271,10 +270,12 @@ async def run_deployment_sse(
             )
 
             yield f"data: 🔧 Prepared certificate data for: {cert_data.cert_name}\n\n"
+            await asyncio.sleep(0.5)
 
             # Get firewall manager
             firewall_manager = FirewallManagerFactory.get_manager(target_system)
             yield f"data: 🏭 Initialized {target_system.system_type.value} manager\n\n"
+            await asyncio.sleep(0.5)
 
             # Track deployment success and logs
             deployment_logs = []
@@ -288,8 +289,7 @@ async def run_deployment_sse(
                 # Check for final success indicators only (not intermediate steps)
                 if (
                     "🎉 SUCCESS:" in message
-                    or "SSL VPN certificate deployment completed successfully"
-                    in message
+                    or "SSL VPN certificate deployment completed successfully" in message
                 ):
                     deployment_success = True
 
@@ -303,9 +303,9 @@ async def run_deployment_sse(
                 )
 
                 # Update last_deployed_at timestamp
-                db.query(models.Deployment).filter(
-                    models.Deployment.id == deployment_id
-                ).update({"last_deployed_at": datetime.utcnow()})
+                db.query(models.Deployment).filter(models.Deployment.id == deployment_id).update(
+                    {"last_deployed_at": datetime.utcnow()}
+                )
                 db.commit()
 
                 yield "data: ✅ Deployment status updated to SUCCESS\n\n"
@@ -362,9 +362,7 @@ async def verify_vpn_deployment_sse(
             from ..services.firewall_manager.factory import FirewallManagerFactory
 
             # Get deployment details
-            db_deployment = crud_deployment.get_deployment(
-                db, deployment_id=deployment_id
-            )
+            db_deployment = crud_deployment.get_deployment(db, deployment_id=deployment_id)
             if db_deployment is None:
                 yield "data: ❌ Deployment not found\n\n"
                 return
@@ -396,9 +394,7 @@ async def verify_vpn_deployment_sse(
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.error(
-                f"SSE VPN verification for deployment {deployment_id} failed: {str(e)}"
-            )
+            logger.error(f"SSE VPN verification for deployment {deployment_id} failed: {str(e)}")
 
             yield f"data: ❌ VPN verification failed: {str(e)}\n\n"
 
@@ -463,13 +459,9 @@ async def verify_vpn_deployment(
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.error(
-            f"VPN verification for deployment {deployment_id} failed: {str(e)}"
-        )
+        logger.error(f"VPN verification for deployment {deployment_id} failed: {str(e)}")
 
-        raise HTTPException(
-            status_code=500, detail=f"VPN verification failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"VPN verification failed: {str(e)}")
 
 
 @router.put("/{deployment_id}")
@@ -559,9 +551,7 @@ async def renew_certificate(
 
         if target_system.system_type.value == "sonicwall":
             # For SonicWall, perform full renewal and deployment
-            result = await auto_renewal_service.renew_certificate_and_deploy(
-                db, db_deployment
-            )
+            result = await auto_renewal_service.renew_certificate_and_deploy(db, db_deployment)
 
             if result["success"]:
                 return {
@@ -572,8 +562,7 @@ async def renew_certificate(
                     "deployment_id": deployment_id,
                     "certificate_name": certificate.common_name,
                     "target_system": target_system.system_name,
-                    "logs": result.get("renewal_logs", [])
-                    + result.get("deployment_logs", []),
+                    "logs": result.get("renewal_logs", []) + result.get("deployment_logs", []),
                 }
             else:
                 raise HTTPException(
@@ -615,9 +604,7 @@ async def renew_certificate(
 
         logger = logging.getLogger(__name__)
         logger.error(f"Manual renewal for deployment {deployment_id} failed: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail=f"Certificate renewal failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Certificate renewal failed: {str(e)}")
 
 
 @router.delete("/{deployment_id}")
@@ -644,12 +631,9 @@ def get_companies(
 ):
     """Get distinct companies from DNS provider accounts"""
     companies = (
-        db.query(DnsProviderAccount.company)
-        .distinct()
-        .order_by(DnsProviderAccount.company)
-        .all()
+        db.query(DnsProviderAccount.company).distinct().order_by(DnsProviderAccount.company).all()
     )
-    return [company[0] for company in companies]
+    return [company for company in companies]
 
 
 @router.get(
@@ -679,7 +663,5 @@ def get_target_systems_by_company(
     db: Session = Depends(get_db),
 ):
     """Get target systems for a specific company"""
-    target_systems = (
-        db.query(TargetSystem).filter(TargetSystem.company == company).all()
-    )
+    target_systems = db.query(TargetSystem).filter(TargetSystem.company == company).all()
     return target_systems

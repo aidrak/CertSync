@@ -1,18 +1,17 @@
+import asyncio
 import logging
 from typing import List
-from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
-from sse_starlette.sse import EventSourceResponse
-import asyncio
 
 from app.crud import crud_log
-from app.schemas.schemas import Log, FrontendLogCreate, LogCreate
 from app.db.database import get_db
-from app.dependencies import get_current_user, get_optional_current_user
 from app.db.models import User as UserModel
+from app.dependencies import get_current_user, get_optional_current_user
+from app.schemas.schemas import FrontendLogCreate, Log, LogCreate
 from app.schemas.schemas import User as UserSchema
 from app.services.log_streamer import log_streamer
-from sqlalchemy.orm import joinedload
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy.orm import Session, joinedload
+from sse_starlette.sse import EventSourceResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -28,9 +27,7 @@ def read_logs(
     """
     Retrieve logs from the database.
     """
-    logger.debug(
-        f"User '{current_user.username}' reading logs with skip: {skip}, limit: {limit}"
-    )
+    logger.debug(f"User '{current_user.username}' reading logs with skip: {skip}, limit: {limit}")
     logs = (
         db.query(crud_log.models.Log)
         .options(joinedload(crud_log.models.Log.user))

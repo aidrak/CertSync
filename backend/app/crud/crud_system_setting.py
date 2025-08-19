@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+
 from ..db import models
 from ..schemas import schemas
 
@@ -7,14 +8,10 @@ def get_setting(db: Session, key: str) -> models.SystemSetting:
     """
     Retrieve a setting from the database by its key.
     """
-    return (
-        db.query(models.SystemSetting).filter(models.SystemSetting.key == key).first()
-    )
+    return db.query(models.SystemSetting).filter(models.SystemSetting.key == key).first()
 
 
-def update_setting(
-    db: Session, setting: schemas.SystemSettingCreate
-) -> models.SystemSetting:
+def update_setting(db: Session, setting: schemas.SystemSettingCreate) -> models.SystemSetting:
     """
     Update a setting in the database. If the setting does not exist, it will be created.
     """

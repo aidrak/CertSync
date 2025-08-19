@@ -8,9 +8,7 @@ except ImportError:
             pass
 
         def deploy_certificate(self, *args, **kwargs):
-            raise NotImplementedError(
-                "Cloudflare certificate deployment not implemented yet"
-            )
+            raise NotImplementedError("Cloudflare certificate deployment not implemented yet")
 
         def test_connection(self, *args, **kwargs):
             raise NotImplementedError("Cloudflare connection test not implemented yet")

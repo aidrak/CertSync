@@ -11,9 +11,8 @@ from ..crud import crud_user
 from ..db.database import get_db
 from ..db.models import User
 from ..dependencies import get_current_user, require_admin_only
-from ..schemas.schemas import Token
+from ..schemas.schemas import Token, UserCreate
 from ..schemas.schemas import User as UserSchema
-from ..schemas.schemas import UserCreate
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -24,8 +23,7 @@ async def login_for_access_token(
     db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
 ):
     logger.info(
-        f"Login attempt for user: '{form_data.username}' "
-        f"with password: '{form_data.password}'"
+        f"Login attempt for user: '{form_data.username}' with password: '{form_data.password}'"
     )
     user = crud_user.get_user_by_username(db, username=form_data.username)
     if not user:
@@ -37,9 +35,7 @@ async def login_for_access_token(
         )
 
     logger.info(f"User '{form_data.username}' found. Verifying password.")
-    is_password_verified = crud_user.verify_password(
-        form_data.password, str(user.hashed_password)
-    )
+    is_password_verified = crud_user.verify_password(form_data.password, str(user.hashed_password))
     if not is_password_verified:
         logger.error(f"Password verification failed for user '{form_data.username}'.")
         raise HTTPException(
@@ -48,10 +44,7 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    logger.info(
-        f"User '{form_data.username}' authenticated successfully. "
-        "Creating access token."
-    )
+    logger.info(f"User '{form_data.username}' authenticated successfully. Creating access token.")
     access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
         data={"sub": user.username, "role": user.role.value},
@@ -108,9 +101,7 @@ def update_user_password_by_admin(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_only),
 ):
-    crud_user.update_password(
-        db=db, user_id=user_id, new_password=password_update.new_password
-    )
+    crud_user.update_password(db=db, user_id=user_id, new_password=password_update.new_password)
     return {"message": "Password updated successfully"}
 
 

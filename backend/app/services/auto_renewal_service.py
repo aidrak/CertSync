@@ -9,14 +9,15 @@ part, then delegate to specific deployment handlers.
 import logging
 from datetime import datetime
 from typing import List
+
 from sqlalchemy.orm import Session
 
-from app.db.database import SessionLocal
-from app.crud import crud_certificate, crud_deployment
-from app.db.models import Certificate, Deployment, DeploymentStatus
-from app.services.le_management.le_service import LetsEncryptService
-from app.services.dns_providers.factory import DnsProviderFactory
 from app.core.security import decrypt_secret
+from app.crud import crud_certificate, crud_deployment
+from app.db.database import SessionLocal
+from app.db.models import Certificate, Deployment, DeploymentStatus
+from app.services.dns_providers.factory import DnsProviderFactory
+from app.services.le_management.le_service import LetsEncryptService
 
 logger = logging.getLogger(__name__)
 
@@ -47,15 +48,12 @@ class AutoRenewalService:
                 .filter(
                     Deployment.auto_renewal_enabled.is_(True),
                     Deployment.next_renewal_date <= now,
-                    Deployment.status
-                    != DeploymentStatus.pending,  # Don't renew if already pending
+                    Deployment.status != DeploymentStatus.pending,  # Don't renew if already pending
                 )
                 .all()
             )
 
-            self.logger.info(
-                f"Found {len(due_deployments)} deployments due for renewal"
-            )
+            self.logger.info(f"Found {len(due_deployments)} deployments due for renewal")
 
             renewal_results = []
 
@@ -64,9 +62,7 @@ class AutoRenewalService:
                     result = await self.renew_certificate_and_deploy(db, deployment)
                     renewal_results.append(result)
                 except Exception as e:
-                    self.logger.error(
-                        f"Failed to renew deployment {deployment.id}: {e}"
-                    )
+                    self.logger.error(f"Failed to renew deployment {deployment.id}: {e}")
                     renewal_results.append(
                         {
                             "deployment_id": deployment.id,
@@ -81,9 +77,7 @@ class AutoRenewalService:
         finally:
             db.close()
 
-    async def renew_certificate_and_deploy(
-        self, db: Session, deployment: Deployment
-    ) -> dict:
+    async def renew_certificate_and_deploy(self, db: Session, deployment: Deployment) -> dict:
         """
         Renew a certificate and deploy it to the target system.
 
@@ -111,9 +105,7 @@ class AutoRenewalService:
                     "error": renewal_result["error"],
                 }
         except Exception as e:
-            self.logger.error(
-                f"Certificate renewal failed for {certificate.common_name}: {e}"
-            )
+            self.logger.error(f"Certificate renewal failed for {certificate.common_name}: {e}")
             return {
                 "deployment_id": deployment.id,
                 "certificate_name": certificate.common_name,
@@ -148,16 +140,12 @@ class AutoRenewalService:
                 "error": str(e),
             }
 
-    async def renew_certificate_cloudflare(
-        self, db: Session, certificate: Certificate
-    ) -> dict:
+    async def renew_certificate_cloudflare(self, db: Session, certificate: Certificate) -> dict:
         """
         Phase 1: Baseline Certificate Renewal using Cloudflare.
         This is the same for all deployments using Cloudflare DNS.
         """
-        self.logger.info(
-            f"Phase 1: Renewing certificate {certificate.common_name} via Cloudflare"
-        )
+        self.logger.info(f"Phase 1: Renewing certificate {certificate.common_name} via Cloudflare")
 
         try:
             # Get DNS provider account
@@ -192,33 +180,25 @@ class AutoRenewalService:
             )
 
             if updated_cert:
-                self.logger.info(
-                    f"Certificate {certificate.common_name} renewed successfully"
-                )
+                self.logger.info(f"Certificate {certificate.common_name} renewed successfully")
                 return {
                     "success": True,
                     "certificate_id": certificate.id,
                     "new_expires_at": updated_cert.expires_at,
-                    "logs": [
-                        f"Certificate {certificate.common_name} renewed via Cloudflare"
-                    ],
+                    "logs": [f"Certificate {certificate.common_name} renewed via Cloudflare"],
                 }
             else:
                 raise Exception("Failed to update certificate in database")
 
         except Exception as e:
-            self.logger.error(
-                f"Cloudflare renewal failed for {certificate.common_name}: {e}"
-            )
+            self.logger.error(f"Cloudflare renewal failed for {certificate.common_name}: {e}")
             return {
                 "success": False,
                 "error": str(e),
                 "logs": [f"Certificate renewal failed: {str(e)}"],
             }
 
-    async def deploy_to_target_system(
-        self, db: Session, deployment: Deployment
-    ) -> dict:
+    async def deploy_to_target_system(self, db: Session, deployment: Deployment) -> dict:
         """
         Phase 2: Deploy the renewed certificate to the target system.
         This delegates to the existing deployment logic (essentially the "Deploy" button).
@@ -231,8 +211,8 @@ class AutoRenewalService:
 
         try:
             # Import the existing deployment logic
-            from app.services.firewall_manager.factory import FirewallManagerFactory
             from app.services.firewall_manager.base import CertificateData
+            from app.services.firewall_manager.factory import FirewallManagerFactory
 
             # Prepare certificate data
             certificate = deployment.certificate
@@ -263,8 +243,7 @@ class AutoRenewalService:
 
                 # Check for success
                 deployment_success = any(
-                    "SUCCESS" in log or "successful" in log.lower()
-                    for log in deployment_logs[-3:]
+                    "SUCCESS" in log or "successful" in log.lower() for log in deployment_logs[-3:]
                 )
 
                 if deployment_success:
@@ -277,6 +256,7 @@ class AutoRenewalService:
 
                     # Update last_deployed_at timestamp
                     from datetime import datetime
+
                     from app.db import models
 
                     db.query(models.Deployment).filter(

@@ -1,12 +1,14 @@
+import asyncio
 import logging
 import os
-import asyncio
-from acme import client, messages, jose, challenges
+from datetime import datetime, timedelta
+
+from acme import challenges, client, jose, messages
+from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography import x509
 from cryptography.x509.oid import NameOID
-from datetime import datetime, timedelta
+
 from ..dns_providers.base import DnsProviderBase
 
 logger = logging.getLogger(__name__)
@@ -42,9 +44,7 @@ class LetsEncryptService:
         self.logs.append(f"[{timestamp}] {message}")
 
     def _get_or_create_account_key(self) -> jose.JWKRSA:
-        key_path = os.getenv(
-            "ACME_ACCOUNT_KEY_PATH", "/etc/certsync/acme_account_key.pem"
-        )
+        key_path = os.getenv("ACME_ACCOUNT_KEY_PATH", "/etc/certsync/acme_account_key.pem")
         key_dir = os.path.dirname(key_path)
         os.makedirs(key_dir, exist_ok=True)
 
@@ -93,14 +93,10 @@ class LetsEncryptService:
                 self.net.account = self.account_resource
                 self._log("✅ Successfully retrieved existing account.")
             except Exception as retrieval_e:
-                self._log(
-                    f"ℹ️ Standard account retrieval failed: {retrieval_e}. Using fallback."
-                )
+                self._log(f"ℹ️ Standard account retrieval failed: {retrieval_e}. Using fallback.")
                 # Fallback: reconstruct minimal account resource from exception URL
                 if hasattr(e, "location") and e.location:
-                    self._log(
-                        "🔧 Reconstructing account resource from existing account URL..."
-                    )
+                    self._log("🔧 Reconstructing account resource from existing account URL...")
                     account_body = messages.Registration(key=self.account_key.key)
                     self.account_resource = messages.RegistrationResource(
                         body=account_body, uri=e.location
@@ -108,9 +104,7 @@ class LetsEncryptService:
                     self.net.account = self.account_resource
                     self._log("✅ Account resource reconstructed successfully.")
                 else:
-                    raise Exception(
-                        "Could not retrieve account; no location URL provided."
-                    )
+                    raise Exception("Could not retrieve account; no location URL provided.")
         except Exception as e:
             self._log(f"❌ Failed during account registration: {e}")
             raise
@@ -123,19 +117,13 @@ class LetsEncryptService:
 
         builder = (
             x509.CertificateSigningRequestBuilder()
-            .subject_name(
-                x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, domains[0])])
-            )
+            .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, domains[0])]))
             .add_extension(
-                x509.SubjectAlternativeName(
-                    [x509.DNSName(domain) for domain in domains]
-                ),
+                x509.SubjectAlternativeName([x509.DNSName(domain) for domain in domains]),
                 critical=False,
             )
         )
-        return builder.sign(private_key, hashes.SHA256()).public_bytes(
-            serialization.Encoding.PEM
-        )
+        return builder.sign(private_key, hashes.SHA256()).public_bytes(serialization.Encoding.PEM)
 
     def _get_dns_challenge(self, authz):
         """Extract the DNS-01 challenge from an authorization resource."""
@@ -145,9 +133,7 @@ class LetsEncryptService:
         self._log("❌ No DNS-01 challenge found.")
         return None
 
-    async def request_certificate(
-        self, domains: list[str]
-    ) -> tuple[str, str, str, list[str]]:
+    async def request_certificate(self, domains: list[str]) -> tuple[str, str, str, list[str]]:
         self._log(f"🚀 Starting certificate request for: {', '.join(domains)}")
 
         private_key = self.generate_private_key()
@@ -165,9 +151,7 @@ class LetsEncryptService:
             if not dns_challenge:
                 raise Exception(f"DNS-01 challenge not found for {domain}")
 
-            response, validation = dns_challenge.chall.response_and_validation(
-                self.account_key
-            )
+            response, validation = dns_challenge.chall.response_and_validation(self.account_key)
             validation_domain_name = f"_acme-challenge.{domain}"
 
             try:
@@ -184,9 +168,7 @@ class LetsEncryptService:
             finally:
                 self._log("🧹 Cleaning up TXT record...")
                 try:
-                    self.dns_provider.delete_txt_record(
-                        validation_domain_name, validation
-                    )
+                    self.dns_provider.delete_txt_record(validation_domain_name, validation)
                     self._log("✅ TXT record cleaned up.")
                 except Exception as cleanup_error:
                     self._log(f"⚠️ Failed to cleanup DNS record: {cleanup_error}")

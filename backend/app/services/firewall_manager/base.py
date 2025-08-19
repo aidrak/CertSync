@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, AsyncIterator
+from typing import AsyncIterator, Optional
 
 
 class CertificateData:
@@ -38,9 +38,7 @@ class FirewallBase(ABC):
         yield "This method needs to be implemented"
 
     # VPN-specific methods
-    async def deploy_vpn_certificate(
-        self, cert_data: CertificateData
-    ) -> AsyncIterator[str]:
+    async def deploy_vpn_certificate(self, cert_data: CertificateData) -> AsyncIterator[str]:
         """
         Deploy certificate to SSL VPN service.
         Default implementation falls back to import + apply.

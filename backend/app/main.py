@@ -1,16 +1,18 @@
 # app/main.py (Modified AGAIN for startup order)
 
 import logging
+
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from .db.database import SessionLocal
-from .apis import target_systems, certificates, auth, logs, system, dns, deploy
-from .crud import crud_user, crud_system_setting
-from .schemas.schemas import UserCreate, SystemSettingCreate, UserRole
+from fastapi.responses import JSONResponse
+from sqlalchemy.sql import text
+
+from .apis import auth, certificates, deploy, dns, logs, system, target_systems
 from .core.config import settings
 from .core.exceptions import CertSyncError
-from sqlalchemy.sql import text
+from .crud import crud_system_setting, crud_user
+from .db.database import SessionLocal
+from .schemas.schemas import SystemSettingCreate, UserCreate, UserRole
 
 logging.basicConfig(level=settings.LOGGING_LEVEL.upper())
 logger = logging.getLogger(__name__)
@@ -72,20 +74,14 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info(
-        f"FastAPI app attempting to connect to DATABASE_URL: {settings.DATABASE_URL}"
-    )
+    logger.info(f"FastAPI app attempting to connect to DATABASE_URL: {settings.DATABASE_URL}")
     try:
         db = SessionLocal()
         db.execute(text("SELECT 1"))
         db.close()
-        logger.info(
-            "FastAPI app successfully connected to the database during startup check."
-        )
+        logger.info("FastAPI app successfully connected to the database during startup check.")
     except Exception as e:
-        logger.error(
-            f"FastAPI app FAILED to connect to the database during startup check: {e}"
-        )
+        logger.error(f"FastAPI app FAILED to connect to the database during startup check: {e}")
         # Consider a more robust error handling for production: maybe exit here
         # For development, proceeding might be useful to diagnose further
         # If DB connection isn't established, subsequent DB operations will fail anyway.
@@ -124,9 +120,7 @@ def create_default_admin():
     db = SessionLocal()
     try:
         # Check if the admin user already exists
-        admin_user = crud_user.get_user_by_username(
-            db, username=settings.DEFAULT_ADMIN_USER
-        )
+        admin_user = crud_user.get_user_by_username(db, username=settings.DEFAULT_ADMIN_USER)
         if not admin_user:
             # Create the admin user if it doesn't exist
             user_in = UserCreate(
@@ -137,20 +131,14 @@ def create_default_admin():
             crud_user.create_user(db=db, user=user_in)
             logger.info(f"Default admin user '{settings.DEFAULT_ADMIN_USER}' created.")
         else:
-            logger.info(
-                f"Default admin user '{settings.DEFAULT_ADMIN_USER}' already exists."
-            )
+            logger.info(f"Default admin user '{settings.DEFAULT_ADMIN_USER}' already exists.")
     finally:
         db.close()
 
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
-app.include_router(
-    target_systems.router, prefix="/api/v1/target-systems", tags=["target-systems"]
-)
-app.include_router(
-    certificates.router, prefix="/api/v1/certificates", tags=["certificates"]
-)
+app.include_router(target_systems.router, prefix="/api/v1/target-systems", tags=["target-systems"])
+app.include_router(certificates.router, prefix="/api/v1/certificates", tags=["certificates"])
 app.include_router(logs.router, prefix="/api/v1/logs", tags=["logs"])
 app.include_router(system.router, prefix="/api/v1/system", tags=["system"])
 app.include_router(dns.router, prefix="/api/v1/dns", tags=["dns"])

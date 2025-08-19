@@ -1,23 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
-from typing import List
 import json
 import logging
+from typing import List
 
-from app.db import models
-from app.schemas import dns as dns_schemas_dns
-from app.crud import crud_dns
-from app.dependencies import get_db, require_role
 from app.core.security import decrypt_secret
+from app.crud import crud_dns
+from app.db import models
+from app.dependencies import get_db, require_role
+from app.schemas import dns as dns_schemas_dns
 from app.services.dns_providers.factory import DnsProviderFactory
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.post(
-    "/dns-provider-accounts/", response_model=dns_schemas_dns.DnsProviderAccount
-)
+@router.post("/dns-provider-accounts/", response_model=dns_schemas_dns.DnsProviderAccount)
 def create_dns_provider_account(
     account: dns_schemas_dns.DnsProviderAccountCreate,
     db: Session = Depends(get_db),
@@ -42,9 +40,7 @@ def create_dns_provider_account(
         try:
             json.loads(account.credentials)
         except json.JSONDecodeError:
-            raise HTTPException(
-                status_code=400, detail="Credentials must be valid JSON"
-            )
+            raise HTTPException(status_code=400, detail="Credentials must be valid JSON")
 
         db_account = crud_dns.create_dns_provider_account(db=db, account=account)
 
@@ -68,12 +64,8 @@ def create_dns_provider_account(
         raise HTTPException(status_code=500, detail="Failed to create DNS account")
 
 
-@router.get(
-    "/dns-provider-accounts/", response_model=List[dns_schemas_dns.DnsProviderAccount]
-)
-def read_dns_provider_accounts(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-):
+@router.get("/dns-provider-accounts/", response_model=List[dns_schemas_dns.DnsProviderAccount])
+def read_dns_provider_accounts(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     try:
         accounts = crud_dns.get_dns_provider_accounts(db, skip=skip, limit=limit)
         result = []
@@ -90,9 +82,7 @@ def read_dns_provider_accounts(
                     "company": account.company,
                     "credentials": parsed_credentials,
                 }
-                result.append(
-                    dns_schemas_dns.DnsProviderAccount.model_validate(account_data)
-                )
+                result.append(dns_schemas_dns.DnsProviderAccount.model_validate(account_data))
 
             except Exception as e:
                 logger.warning(f"Skipping corrupted account {account.id}: {str(e)}")
@@ -121,9 +111,7 @@ def update_dns_provider_account(
             db=db, account_id=account_id, account=account
         )
         if db_account is None:
-            raise HTTPException(
-                status_code=404, detail="DNS Provider Account not found"
-            )
+            raise HTTPException(status_code=404, detail="DNS Provider Account not found")
 
         decrypted_creds_json = decrypt_secret(str(db_account.credentials))
         parsed_credentials = json.loads(decrypted_creds_json)
@@ -156,9 +144,7 @@ def delete_dns_provider_account(
     try:
         db_account = crud_dns.delete_dns_provider_account(db=db, account_id=account_id)
         if db_account is None:
-            raise HTTPException(
-                status_code=404, detail="DNS Provider Account not found"
-            )
+            raise HTTPException(status_code=404, detail="DNS Provider Account not found")
 
         decrypted_creds_json = decrypt_secret(str(db_account.credentials))
         parsed_credentials = json.loads(decrypted_creds_json)
@@ -179,9 +165,7 @@ def delete_dns_provider_account(
         raise HTTPException(status_code=500, detail="Failed to delete DNS account")
 
 
-@router.post(
-    "/dns-provider-accounts/test", response_model=dns_schemas_dns.DnsProviderAccountTest
-)
+@router.post("/dns-provider-accounts/test", response_model=dns_schemas_dns.DnsProviderAccountTest)
 def test_dns_provider_account(
     account: dns_schemas_dns.DnsProviderAccountTest,
     request: Request,

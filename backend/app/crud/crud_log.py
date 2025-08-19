@@ -1,7 +1,9 @@
+from typing import Optional
+
 from sqlalchemy.orm import Session
+
 from ..db import models
 from ..schemas import schemas
-from typing import Optional
 
 
 def create_log(db: Session, log: schemas.LogCreate, user_id: Optional[int] = None):
@@ -14,9 +16,5 @@ def create_log(db: Session, log: schemas.LogCreate, user_id: Optional[int] = Non
 
 def get_logs(db: Session, skip: int = 0, limit: int = 100):
     return (
-        db.query(models.Log)
-        .order_by(models.Log.timestamp.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
+        db.query(models.Log).order_by(models.Log.timestamp.desc()).offset(skip).limit(limit).all()
     )

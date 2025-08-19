@@ -1,16 +1,16 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import List
-from pydantic import BaseModel
 
-from app.db.database import get_db
-from app.db import models
-from app.dependencies import require_role
 from app.core.config import settings
 from app.crud import crud_system_setting
+from app.db import models
+from app.db.database import get_db
+from app.dependencies import require_role
 from app.schemas import schemas
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -171,9 +171,7 @@ def backup_now(
 
 
 @router.get("/download-backup/{backup_id}")
-def download_backup(
-    backup_id: int, current_user: models.User = Depends(require_role("admin"))
-):
+def download_backup(backup_id: int, current_user: models.User = Depends(require_role("admin"))):
     """
     Download a specific backup file.
     """

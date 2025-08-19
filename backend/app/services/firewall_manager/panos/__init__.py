@@ -8,9 +8,7 @@ except ImportError:
             pass
 
         def deploy_certificate(self, *args, **kwargs):
-            raise NotImplementedError(
-                "PanOS certificate deployment not implemented yet"
-            )
+            raise NotImplementedError("PanOS certificate deployment not implemented yet")
 
         def test_connection(self, *args, **kwargs):
             raise NotImplementedError("PanOS connection test not implemented yet")

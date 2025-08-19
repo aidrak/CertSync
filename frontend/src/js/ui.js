@@ -134,10 +134,10 @@ export function createTestProgressDisplay(modalId) {
 }
 
 export function updateTestStep(message, status = 'info') {
-    // Try deployment progress list first, then fall back to test progress list
-    let progressList = document.getElementById('deployment-progress-list');
+    // Try test progress list first (for new deployment tests), then fall back to deployment progress list (for existing deployments)
+    let progressList = document.getElementById('test-progress-list');
     if (!progressList) {
-        progressList = document.getElementById('test-progress-list');
+        progressList = document.getElementById('deployment-progress-list');
     }
     if (!progressList) return;
     
@@ -318,7 +318,7 @@ export function renderDeploymentsTable(deployments) {
                     <div class="action-buttons">
                         <button class="deploy-btn" data-id="${deployment.id}">Deploy</button>
                         <button class="verify-vpn-btn" data-id="${deployment.id}" style="margin-left: 5px;">Verify</button>
-                        <button class="renew-cert-btn" data-id="${deployment.id}" style="margin-left: 5px;">Renew Cert</button>
+                        <button class="renew-cert-btn" data-id="${deployment.id}" style="margin-left: 5px;">Renew</button>
                         <button class="edit-deployment-btn" data-id="${deployment.id}" style="margin-left: 5px;">Edit</button>
                         <button class="delete-deployment-btn" data-id="${deployment.id}">Delete</button>
                     </div>

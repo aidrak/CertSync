@@ -1,15 +1,14 @@
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
-from fastapi import HTTPException
 import json
+
+from app.core.security import decrypt_secret, encrypt_secret
 from app.db import models
 from app.schemas import dns as dns_schemas
-from app.core.security import encrypt_secret, decrypt_secret
+from fastapi import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 
-def create_dns_provider_account(
-    db: Session, account: dns_schemas.DnsProviderAccountCreate
-):
+def create_dns_provider_account(db: Session, account: dns_schemas.DnsProviderAccountCreate):
     try:
         # Validate that credentials can be properly processed before saving
         test_encrypted = encrypt_secret(account.credentials)

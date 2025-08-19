@@ -1,5 +1,7 @@
-import requests
 import logging
+
+import requests
+
 from ..base import DnsProviderBase
 
 logger = logging.getLogger(__name__)
@@ -58,13 +60,9 @@ class DigitalOceanDns(DnsProviderBase):
         try:
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
-            logger.info(
-                f"Successfully created TXT record for {domain} on DigitalOcean."
-            )
+            logger.info(f"Successfully created TXT record for {domain} on DigitalOcean.")
         except requests.exceptions.RequestException as e:
-            logger.error(
-                f"Failed to create TXT record for {domain} on DigitalOcean: {e}"
-            )
+            logger.error(f"Failed to create TXT record for {domain} on DigitalOcean: {e}")
             raise
 
     def delete_txt_record(self, domain: str, token: str):
@@ -74,9 +72,7 @@ class DigitalOceanDns(DnsProviderBase):
         root_domain, record_name = self._get_domain_and_subdomain(domain)
 
         # First, find the record ID
-        records_url = (
-            f"{self.base_url}/domains/{root_domain}/records?type=TXT&name={record_name}"
-        )
+        records_url = f"{self.base_url}/domains/{root_domain}/records?type=TXT&name={record_name}"
 
         try:
             response = requests.get(records_url, headers=self.headers)
@@ -91,20 +87,14 @@ class DigitalOceanDns(DnsProviderBase):
                     break
 
             if record_id:
-                delete_url = (
-                    f"{self.base_url}/domains/{root_domain}/records/{record_id}"
-                )
+                delete_url = f"{self.base_url}/domains/{root_domain}/records/{record_id}"
                 delete_response = requests.delete(delete_url, headers=self.headers)
                 delete_response.raise_for_status()
-                logger.info(
-                    f"Successfully deleted TXT record for {domain} from DigitalOcean."
-                )
+                logger.info(f"Successfully deleted TXT record for {domain} from DigitalOcean.")
             else:
                 logger.warning(f"Could not find TXT record for {domain} to delete.")
 
         except requests.exceptions.RequestException as e:
-            logger.error(
-                f"Failed to delete TXT record for {domain} from DigitalOcean: {e}"
-            )
+            logger.error(f"Failed to delete TXT record for {domain} from DigitalOcean: {e}")
             # Don't raise an exception here, as failure to clean up shouldn't
             # block the whole process.

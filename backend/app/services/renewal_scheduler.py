@@ -9,10 +9,10 @@ import asyncio
 import logging
 from typing import Optional
 
-from app.services.auto_renewal_service import auto_renewal_service
 from app.crud import crud_log
 from app.db.database import SessionLocal
 from app.schemas import schemas
+from app.services.auto_renewal_service import auto_renewal_service
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class RenewalScheduler:
     Background scheduler for automatic certificate renewals.
     """
 
-    def __init__(self, check_interval_hours: int = 12):
+    def __init__(self, check_interval_hours: int = 24):
         self.check_interval_hours = check_interval_hours
         self.running = False
         self.task: Optional[asyncio.Task] = None
@@ -51,17 +51,13 @@ class RenewalScheduler:
                 self.logger.info("Running automatic certificate renewal check...")
 
                 # Run the renewal check
-                renewal_results = (
-                    await auto_renewal_service.check_and_renew_due_certificates()
-                )
+                renewal_results = await auto_renewal_service.check_and_renew_due_certificates()
 
                 # Log the results
                 await self._log_renewal_results(renewal_results)
 
                 # Wait for next check
-                await asyncio.sleep(
-                    self.check_interval_hours * 3600
-                )  # Convert hours to seconds
+                await asyncio.sleep(self.check_interval_hours * 3600)  # Convert hours to seconds
 
             except asyncio.CancelledError:
                 self.logger.info("Renewal scheduler cancelled")
@@ -87,12 +83,8 @@ class RenewalScheduler:
                     ),
                 )
             else:
-                successful_renewals = [
-                    r for r in renewal_results if r.get("success", False)
-                ]
-                failed_renewals = [
-                    r for r in renewal_results if not r.get("success", False)
-                ]
+                successful_renewals = [r for r in renewal_results if r.get("success", False)]
+                failed_renewals = [r for r in renewal_results if not r.get("success", False)]
 
                 summary_message = f"Automatic renewal check completed: {len(successful_renewals)} successful, {len(failed_renewals)} failed"  # noqa: E501
                 self.logger.info(summary_message)

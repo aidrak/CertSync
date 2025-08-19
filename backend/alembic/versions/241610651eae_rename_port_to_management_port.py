@@ -5,8 +5,8 @@ Revises:
 Create Date: 2025-08-16 22:56:42.113989
 
 """
-from typing import Sequence, Union
 
+from typing import Sequence, Union
 
 # revision identifiers, used by Alembic.
 revision: str = "241610651eae"

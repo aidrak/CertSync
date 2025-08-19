@@ -1,35 +1,34 @@
 from __future__ import annotations
+
+import asyncio
+import json
 import logging
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
-from sqlalchemy.orm import Session
-import json
-import asyncio
 
-from app.crud import crud_certificate, crud_dns, crud_log
-from app.schemas import certificates as cert_schema
-from app.schemas import schemas as generic_schema
-from app.db.database import get_db, SessionLocal
-from app.services.le_management.le_service import LetsEncryptService
-from app.services.dns_providers.factory import DnsProviderFactory
 from app.core.config import settings
 from app.core.security import decrypt_secret
-from app.dependencies import (
-    require_role,
-    require_admin_or_technician,
-    get_current_user_sse,
-)
+from app.crud import crud_certificate, crud_dns, crud_log
+from app.db.database import SessionLocal, get_db
 from app.db.models import User
+from app.dependencies import (
+    get_current_user_sse,
+    require_admin_or_technician,
+    require_role,
+)
+from app.schemas import certificates as cert_schema
+from app.schemas import schemas as generic_schema
+from app.services.dns_providers.factory import DnsProviderFactory
+from app.services.le_management.le_service import LetsEncryptService
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 # Background task function for saving certificates
-def save_certificate_to_db(
-    cert_data: dict, user_id: int, renewal_cert_id: int | None = None
-):
+def save_certificate_to_db(cert_data: dict, user_id: int, renewal_cert_id: int | None = None):
     """Background task to save certificate to database"""
     db = SessionLocal()
     try:
@@ -47,14 +46,11 @@ def save_certificate_to_db(
             )
 
             if not certificate:
-                raise Exception(
-                    f"Certificate with ID {renewal_cert_id} not found for renewal"
-                )
+                raise Exception(f"Certificate with ID {renewal_cert_id} not found for renewal")
             action = "Certificate Renewed"
             message = "Certificate successfully renewed and updated in database"
             logger.info(
-                f"Background task: Certificate {cert_data['common_name']} "
-                "renewed successfully"
+                f"Background task: Certificate {cert_data['common_name']} renewed successfully"
             )
         else:
             logger.info(
@@ -91,9 +87,7 @@ def save_certificate_to_db(
 
     except Exception as e:
         error_action = (
-            "Certificate Renewal Failed"
-            if renewal_cert_id
-            else "Certificate Creation Failed"
+            "Certificate Renewal Failed" if renewal_cert_id else "Certificate Creation Failed"
         )
         logger.error(
             f"Background task: Failed to {'renew' if renewal_cert_id else 'save'} "
@@ -154,7 +148,7 @@ async def handle_certificate_request_streaming(
             dns_service = dns_factory.get_provider(
                 provider_type=dns_provider.provider_type,
                 credentials=json.loads(decrypt_secret(str(dns_provider.credentials))),
-                domain=str(dns_provider.domain),
+                domain=str(dns_provider.managed_domain),
             )
             # Initialize Let's Encrypt service
             le_service = LetsEncryptService(
@@ -163,24 +157,18 @@ async def handle_certificate_request_streaming(
                 staging=settings.LE_STAGING,
             )
             yield "data: 🌐 Requesting certificate from Let's Encrypt...\n\n"
+            yield "data: ⏳ This may take a while, please don't close this window...\n\n"
             await asyncio.sleep(0.1)
 
-            # Run the certificate request in a thread pool to avoid blocking
-            def run_certificate_request():
-                return le_service.request_certificate(domains=cert_request.domains)
-
-            # Execute in thread pool
-            loop = asyncio.get_event_loop()
-            private_key, certificate_body, _, logs = await loop.run_in_executor(
-                None, run_certificate_request
-            )
+            # Request certificate directly since it's already async
+            private_key, certificate_body, _, logs = await le_service.request_certificate(domains=cert_request.domains)
             if certificate_body and private_key:
                 yield "data: ✅ Certificate generated successfully!\n\n"
                 await asyncio.sleep(0.1)
                 # Prepare certificate data for background task
                 cert_data = {
                     "name": cert_request.name,
-                    "common_name": cert_request.domains,
+                    "common_name": cert_request.domains[0],
                     "certificate_body": certificate_body,
                     "private_key": private_key,
                     "dns_provider_account_id": cert_request.dns_provider_account_id,
@@ -202,9 +190,7 @@ async def handle_certificate_request_streaming(
 
 
 # Updated SSE endpoint using background tasks
-@router.post(
-    "/request-le-cert-sse/{dns_provider_name}", response_class=StreamingResponse
-)
+@router.post("/request-le-cert-sse/{dns_provider_name}", response_class=StreamingResponse)
 async def request_le_certificate_sse(
     dns_provider_name: str,
     request: Request,
@@ -332,9 +318,7 @@ async def renew_certificate_sse_get(
                 name=str(existing_cert.name),
                 hostname_id=int(existing_cert.hostname_id),
             )
-            logger.info(
-                f"Renewing certificate ID {cert_id} with request: {cert_request}"
-            )
+            logger.info(f"Renewing certificate ID {cert_id} with request: {cert_request}")
             # Use the same streaming handler but with renewal context
             yield f"data: 🔄 Renewing certificate for {domains_list}...\n\n"
             async for message in handle_certificate_request_streaming(
@@ -428,9 +412,7 @@ def delete_certificate(
     crud_certificate.delete_certificate(db, certificate_id=cert_id)
     logger.info("Certificate marked for deletion in the database session.")
     db.commit()
-    logger.info(
-        f"--- Certificate ID {cert_id} successfully deleted from the database. ---"
-    )
+    logger.info(f"--- Certificate ID {cert_id} successfully deleted from the database. ---")
 
     return {"message": "Certificate deleted successfully"}
 
@@ -442,9 +424,7 @@ def download_certificate(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_or_technician),
 ):
-    logger.debug(
-        f"User '{current_user.username}' attempting to download certificate ID {cert_id}."
-    )
+    logger.debug(f"User '{current_user.username}' attempting to download certificate ID {cert_id}.")
     db_cert = crud_certificate.get_certificate(db, certificate_id=cert_id)
     if db_cert is None:
         raise HTTPException(status_code=404, detail="Certificate not found")
@@ -453,9 +433,7 @@ def download_certificate(
         raise HTTPException(status_code=400, detail="Certificate data is incomplete.")
 
     try:
-        pfx_data = crud_certificate.create_pfx(
-            db, certificate_id=cert_id, password=data.password
-        )
+        pfx_data = crud_certificate.create_pfx(db, certificate_id=cert_id, password=data.password)
 
         filename = f"{db_cert.common_name}.pfx"
         return StreamingResponse(

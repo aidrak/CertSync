@@ -1,19 +1,21 @@
-from typing import Optional
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    DateTime,
-    ForeignKey,
-    Text,
-    Enum,
-    UniqueConstraint,
-    Boolean,
-)
-from sqlalchemy.orm import relationship
-from .database import Base
 import datetime
 import enum
+from typing import Optional
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import relationship
+
+from .database import Base
 
 
 class UserRole(enum.Enum):
@@ -120,15 +122,11 @@ class Certificate(Base):
     dns_provider_account_id = Column(
         Integer, ForeignKey("dns_provider_accounts.id"), nullable=False
     )
-    dns_provider_account = relationship(
-        "DnsProviderAccount", back_populates="certificates"
-    )
+    dns_provider_account = relationship("DnsProviderAccount", back_populates="certificates")
     deployments = relationship("Deployment", back_populates="certificate")
     hostnames = relationship("Hostname", back_populates="certificate")
 
-    __table_args__ = (
-        UniqueConstraint("common_name", name="certificates_common_name_unique"),
-    )
+    __table_args__ = (UniqueConstraint("common_name", name="certificates_common_name_unique"),)
 
 
 class Hostname(Base):
@@ -136,9 +134,7 @@ class Hostname(Base):
     id = Column(Integer, primary_key=True, index=True)
     hostname = Column(String, index=True, unique=True)
     # --- FIX APPLIED HERE ---
-    certificate_id: Optional[int] = Column(
-        Integer, ForeignKey("certificates.id"), nullable=True
-    )
+    certificate_id: Optional[int] = Column(Integer, ForeignKey("certificates.id"), nullable=True)
     certificate = relationship("Certificate", back_populates="hostnames")
 
 

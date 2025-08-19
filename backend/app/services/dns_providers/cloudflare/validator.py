@@ -27,9 +27,7 @@ class CloudflareTokenTester:
         self.zone_id = None
         self.test_records_created = []
 
-    def _make_request(
-        self, method: str, endpoint: str, data: dict = None
-    ) -> Tuple[bool, dict]:
+    def _make_request(self, method: str, endpoint: str, data: dict = None) -> Tuple[bool, dict]:
         """Make API request to Cloudflare."""
         url = f"{self.base_url}{endpoint}"
 
@@ -100,14 +98,10 @@ class CloudflareTokenTester:
             for zone in zones:
                 if zone["name"] == self.domain:
                     self.zone_id = zone["id"]
-                    logger.debug(
-                        f"✅ Found target domain: {self.domain} (Zone ID: {self.zone_id})"
-                    )
+                    logger.debug(f"✅ Found target domain: {self.domain} (Zone ID: {self.zone_id})")
                     return True
 
-            logger.debug(
-                f"❌ Target domain '{self.domain}' not found in accessible zones"
-            )
+            logger.debug(f"❌ Target domain '{self.domain}' not found in accessible zones")
             logger.debug("Available zones:")
             for zone in zones:
                 logger.debug(f"  - {zone['name']} ({zone['id']})")
@@ -116,9 +110,7 @@ class CloudflareTokenTester:
             # Use first zone if no domain specified
             self.zone_id = zones["id"]
             self.domain = zones["name"]
-            logger.debug(
-                f"✅ Using first available zone: {self.domain} (Zone ID: {self.zone_id})"
-            )
+            logger.debug(f"✅ Using first available zone: {self.domain} (Zone ID: {self.zone_id})")
             return True
 
     def test_dns_record_read(self) -> bool:
@@ -129,9 +121,7 @@ class CloudflareTokenTester:
             logger.debug("❌ No zone ID available")
             return False
 
-        success, result = self._make_request(
-            "GET", f"/zones/{self.zone_id}/dns_records"
-        )
+        success, result = self._make_request("GET", f"/zones/{self.zone_id}/dns_records")
 
         if success:
             records = result.get("result", [])
@@ -307,9 +297,7 @@ class CloudflareTokenTester:
                 results.append(result)
 
                 if not result:
-                    logger.debug(
-                        f"❌ Test '{test_name}' failed - stopping further tests"
-                    )
+                    logger.debug(f"❌ Test '{test_name}' failed - stopping further tests")
                     break
 
         except KeyboardInterrupt:
@@ -335,12 +323,8 @@ class CloudflareTokenTester:
         logger.debug(f"\nOverall: {passed}/{total} tests passed")
 
         if passed == total:
-            logger.debug(
-                "🎉 SUCCESS: Token is fully compatible with ACME/Let's Encrypt!"
-            )
-            logger.debug(
-                "   Your token has all required permissions for DNS-01 challenges."
-            )
+            logger.debug("🎉 SUCCESS: Token is fully compatible with ACME/Let's Encrypt!")
+            logger.debug("   Your token has all required permissions for DNS-01 challenges.")
             return True
         else:
             logger.debug("❌ FAILURE: Token is not compatible with ACME/Let's Encrypt")

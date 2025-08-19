@@ -1,11 +1,14 @@
 import logging
-import aiohttp
 import ssl
-from typing import AsyncIterator, Dict, Any
-from .validator import SonicWallValidator
+from typing import Any, AsyncIterator, Dict
+
+import aiohttp
+
+from ..base import CertificateData
+from ..base import FirewallBase as FirewallManager
 from .cert_manager import SonicWallCertManager
 from .deploy import SonicWallDeployManager
-from ..base import FirewallBase as FirewallManager, CertificateData
+from .validator import SonicWallValidator
 
 logger = logging.getLogger(__name__)
 
@@ -52,17 +55,13 @@ class SonicWallManager(FirewallManager):
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
-        async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(ssl=ssl_context)
-        ):
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context)):
             async for message in validator.run_complete_test():
                 yield message
         logger.info(f"SonicWall connectivity test for {self.hostname} completed.")
 
     async def import_certificate(self, cert_data: CertificateData) -> bool:
-        logger.info(
-            f"Importing certificate '{cert_data.cert_name}' to SonicWall {self.hostname}"
-        )
+        logger.info(f"Importing certificate '{cert_data.cert_name}' to SonicWall {self.hostname}")
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
@@ -74,9 +73,7 @@ class SonicWallManager(FirewallManager):
             )
 
     async def delete_certificate(self, cert_name: str) -> bool:
-        logger.info(
-            f"Deleting certificate '{cert_name}' from SonicWall {self.hostname}"
-        )
+        logger.info(f"Deleting certificate '{cert_name}' from SonicWall {self.hostname}")
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
@@ -86,9 +83,7 @@ class SonicWallManager(FirewallManager):
             return await self.cert_manager.delete_certificate(session, cert_name)
 
     async def check_certificate_exists(self, cert_name: str) -> bool:
-        logger.info(
-            f"Checking for certificate '{cert_name}' on SonicWall {self.hostname}"
-        )
+        logger.info(f"Checking for certificate '{cert_name}' on SonicWall {self.hostname}")
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
@@ -107,9 +102,7 @@ class SonicWallManager(FirewallManager):
         # This will be implemented later
         return True
 
-    async def deploy_vpn_certificate(
-        self, cert_data: CertificateData
-    ) -> AsyncIterator[str]:
+    async def deploy_vpn_certificate(self, cert_data: CertificateData) -> AsyncIterator[str]:
         """Deploy certificate to SonicWall SSL VPN service."""
         async for message in self.deploy_manager.deploy_vpn_certificate(cert_data):
             yield message

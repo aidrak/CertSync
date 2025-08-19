@@ -1,4 +1,5 @@
 import logging
+
 from ..base import DnsProviderBase
 from .validator import CloudflareTokenTester
 

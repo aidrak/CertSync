@@ -36,13 +36,9 @@ class FortiGateValidator:
         }
         # Generate unique test certificate name for each validation run
         # Shortened format: CST-MMDDHHMM-HEX for better FortiGate compatibility
-        timestamp = datetime.datetime.now().strftime(
-            "%m%d%H%M"
-        )  # Month, Day, Hour, Minute
+        timestamp = datetime.datetime.now().strftime("%m%d%H%M")  # Month, Day, Hour, Minute
         unique_id = secrets.token_hex(4)  # 4 bytes = 8 hex characters
-        self.test_cert_name = (
-            f"CST-{timestamp}-{unique_id}"  # Example: CST-08151530-d9b2a375
-        )
+        self.test_cert_name = f"CST-{timestamp}-{unique_id}"  # Example: CST-08151530-d9b2a375
 
     def _generate_test_certificate(self):
         """
@@ -77,16 +73,12 @@ class FortiGateValidator:
             .public_key(key.public_key())
             .serial_number(x509.random_serial_number())
             .not_valid_before(
-                datetime.datetime.now(datetime.timezone.utc)
-                - datetime.timedelta(days=1)
+                datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
             )
             .not_valid_after(
-                datetime.datetime.now(datetime.timezone.utc)
-                + datetime.timedelta(days=365)
+                datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365)
             )
-            .add_extension(
-                x509.BasicConstraints(ca=False, path_length=None), critical=True
-            )
+            .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
             .add_extension(
                 x509.KeyUsage(
                     digital_signature=True,
@@ -257,9 +249,7 @@ class FortiGateValidator:
             async with aiohttp.ClientSession(connector=connector) as session:
                 # 1. Initial Check and Cleanup
                 yield "🔍 Checking for pre-existing test certificate..."
-                exists, msg = await self._check_cert_exists(
-                    session, self.test_cert_name
-                )
+                exists, msg = await self._check_cert_exists(session, self.test_cert_name)
                 yield msg
 
                 if exists:
@@ -283,9 +273,7 @@ class FortiGateValidator:
 
                 # 3. Verify Import
                 yield "🔍 Verifying certificate import..."
-                verified, msg = await self._check_cert_exists(
-                    session, self.test_cert_name
-                )
+                verified, msg = await self._check_cert_exists(session, self.test_cert_name)
                 yield msg
                 if not verified:
                     yield "❌ Aborting: Could not verify certificate after import."
@@ -293,9 +281,7 @@ class FortiGateValidator:
 
                 # 4. Test Certificate Renewal (simulates Let's Encrypt renewal)
                 yield "🔄 Testing certificate renewal functionality..."
-                renewed, msg = await self._test_certificate_update(
-                    session, self.test_cert_name
-                )
+                renewed, msg = await self._test_certificate_update(session, self.test_cert_name)
                 yield msg
                 if not renewed:
                     yield "⚠️ Certificate renewal test failed, but import succeeded."

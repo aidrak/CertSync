@@ -1,7 +1,9 @@
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional
 import datetime
-from ..db.models import UserRole, TargetSystemType
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from ..db.models import TargetSystemType, UserRole
 
 
 class UserBase(BaseModel):
@@ -103,9 +105,7 @@ class TargetSystemCreate(TargetSystemBase):
 
 
 class TargetSystemUpdate(BaseModel):
-    system_name: Optional[str] = Field(
-        None, pattern=r"^[a-zA-Z0-9.\- ]+$", max_length=100
-    )
+    system_name: Optional[str] = Field(None, pattern=r"^[a-zA-Z0-9.\- ]+$", max_length=100)
     system_type: Optional[TargetSystemType] = None
     public_ip: Optional[str] = None
     vpn_port: Optional[int] = None

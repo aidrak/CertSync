@@ -25,13 +25,9 @@ class FortiGateCertManager:
                     url, headers=self.headers, json=data, timeout=timeout
                 )
             elif method.upper() == "GET":
-                response_obj = await session.get(
-                    url, headers=self.headers, timeout=timeout
-                )
+                response_obj = await session.get(url, headers=self.headers, timeout=timeout)
             elif method.upper() == "DELETE":
-                response_obj = await session.delete(
-                    url, headers=self.headers, timeout=timeout
-                )
+                response_obj = await session.delete(url, headers=self.headers, timeout=timeout)
             else:
                 return None, {"error": "Invalid request method"}
 

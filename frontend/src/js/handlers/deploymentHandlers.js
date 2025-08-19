@@ -1,7 +1,7 @@
 import { API_URL } from '../config.js';
 import { safeFetch, showToast, safeEventSource } from '../utils.js';
-import { showModal, hideModal, updateTestStep, showConfirmationModal } from '../ui.js';
-import { fetchCertificates, fetchTargetSystems, fetchDeployments, fetchCompanies, fetchCertificatesByCompany, fetchTargetSystemsByCompany, createDeployment, verifyVpnDeployment, getDeployment, updateDeployment, renewCertificate } from '../api.js';
+import { showModal, hideModal, updateTestStep, showConfirmationModal, createTestProgressDisplay, clearTestProgressDisplay } from '../ui.js';
+import { fetchCertificates, fetchTargetSystems, fetchDeployments, fetchDnsProviders, fetchCertificatesByCompany, fetchTargetSystemsByCompany, createDeployment, verifyVpnDeployment, getDeployment, updateDeployment, renewCertificate } from '../api.js';
 
 async function populateSelectWithOptions(selectElementId, fetchData, optionTextFormatter) {
     const selectElement = document.getElementById(selectElementId);
@@ -26,7 +26,9 @@ async function populateCompanyDropdown() {
     if (!companySelect) return;
 
     try {
-        const companies = await fetchCompanies();
+        const dnsProviders = await fetchDnsProviders();
+        const companies = [...new Set(dnsProviders.map(provider => provider.company))];
+        
         companySelect.innerHTML = '<option value="">Select Company</option>';
         companies.forEach(company => {
             const option = document.createElement('option');
@@ -102,6 +104,10 @@ function setupAddDeploymentModal() {
             document.getElementById('deployment-target-system').disabled = true;
             document.getElementById('deployment-auto-renewal').checked = true;
             
+            // Reset button and modal state
+            resetTestDeploymentButton();
+            resetModalState();
+            
             await populateCompanyDropdown();
             const company = document.getElementById('deployment-company').value;
             await Promise.all([
@@ -109,6 +115,18 @@ function setupAddDeploymentModal() {
                 populateTargetSystemDropdown(company)
             ]);
             showModal(addDeploymentModal);
+        }
+    });
+
+    // Handle modal close events to reset button state and modal state
+    document.body.addEventListener('click', (e) => {
+        // Handle close button (×) clicks
+        if (e.target.classList.contains('close-btn')) {
+            const modal = e.target.closest('.modal');
+            if (modal && modal.id === 'add-deployment-modal') {
+                resetTestDeploymentButton();
+                resetModalState();
+            }
         }
     });
 }
@@ -126,29 +144,113 @@ function setupCompanyChangeHandler() {
 }
 
 function setupAddDeploymentForm() {
-    const form = document.getElementById('add-deployment-form');
-    if (!form) return;
+    // Handle test deployment button
+    document.body.addEventListener('click', async (e) => {
+        if (e.target.id === 'test-deployment-btn') {
+            const button = e.target;
+            const originalText = button.textContent;
+            
+            const certificateId = document.getElementById('deployment-certificate').value;
+            const targetSystemId = document.getElementById('deployment-target-system').value;
+            const autoRenewalEnabled = document.getElementById('deployment-auto-renewal').checked;
 
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
+            // Basic validation
+            if (!certificateId || !targetSystemId) {
+                showToast('Please select both certificate and target system', 'error');
+                return;
+            }
 
-        const certificateId = document.getElementById('deployment-certificate').value;
-        const targetSystemId = document.getElementById('deployment-target-system').value;
-        const autoRenewalEnabled = document.getElementById('deployment-auto-renewal').checked;
+            try {
+                button.textContent = 'Testing...';
+                button.disabled = true;
 
-        // Basic validation
-        if (!certificateId || !targetSystemId) {
-            showToast('Please select both certificate and target system', 'error');
-            return;
-        }
+                // Create progress display
+                createTestProgressDisplay('add-deployment-modal');
+                updateTestStep('Creating deployment record...', 'running');
 
-        try {
-            await createDeployment(certificateId, targetSystemId, autoRenewalEnabled);
-            hideModal(document.getElementById('add-deployment-modal'));
-            await fetchDeployments();
-            showToast('Deployment added successfully!', 'success');
-        } catch (error) {
-            // Error is handled by safeFetch
+                // First create the deployment
+                const deployment = await createDeployment(certificateId, targetSystemId, autoRenewalEnabled);
+                updateTestStep('✅ Deployment record created', 'success');
+                updateTestStep('Starting deployment test...', 'running');
+                
+                // Then immediately test deploy it with streaming progress
+                currentEventSource = safeEventSource(`${API_URL}/deploy/${deployment.id}/run-sse`);
+                
+                if (currentEventSource) {
+                    currentEventSource.onmessage = (event) => {
+                        const log = event.data;
+                        let status = 'info';
+                        if (log.includes('✅')) status = 'success';
+                        if (log.includes('❌')) status = 'error';
+                        updateTestStep(log, status);
+
+                        if (log.includes('successfully') && log.includes('deployed')) {
+                            updateTestStep('✅ Deployment test successful!', 'success');
+                            button.textContent = '✅ Test Successful';
+                            button.style.backgroundColor = '#27ae60';
+                            setTimeout(() => {
+                                hideModal(document.getElementById('add-deployment-modal'));
+                                fetchDeployments();
+                                clearTestProgressDisplay();
+                                showToast('Deployment tested and added successfully!', 'success');
+                                // Reset button state after successful completion
+                                resetTestDeploymentButton();
+                            }, 2000);
+                        } else if (log.includes('❌') && log.includes('failed')) {
+                            updateTestStep('❌ Deployment test failed', 'error');
+                            updateTestStep('🗑️ Removing failed deployment record...', 'running');
+                            button.textContent = '❌ Test Failed';
+                            button.style.backgroundColor = '#c0392b';
+                            
+                            // Delete the failed deployment record
+                            try {
+                                await safeFetch(`${API_URL}/deploy/${deployment.id}`, { method: 'DELETE' });
+                                updateTestStep('✅ Failed deployment record removed', 'success');
+                            } catch (error) {
+                                updateTestStep('⚠️ Could not remove failed deployment record', 'error');
+                            }
+                            // Don't close modal so user can see the error details
+                        } else if (log.includes("###CLOSE###")) {
+                            // Stream ended, check if test was successful
+                            if (button.textContent !== '✅ Test Successful') {
+                                // If test failed, also try to clean up the deployment record
+                                try {
+                                    await safeFetch(`${API_URL}/deploy/${deployment.id}`, { method: 'DELETE' });
+                                    updateTestStep('🗑️ Cleaned up failed deployment record', 'info');
+                                } catch (error) {
+                                    // Ignore cleanup errors on stream end
+                                }
+                                resetTestDeploymentButton();
+                            }
+                        }
+                    };
+
+                    currentEventSource.onerror = async () => {
+                        updateTestStep('❌ Connection failed or stream ended', 'error');
+                        // Clean up the deployment record since the test failed
+                        try {
+                            await safeFetch(`${API_URL}/deploy/${deployment.id}`, { method: 'DELETE' });
+                            updateTestStep('🗑️ Cleaned up failed deployment record', 'info');
+                        } catch (error) {
+                            updateTestStep('⚠️ Could not remove failed deployment record', 'error');
+                        }
+                        resetTestDeploymentButton();
+                        // Don't close modal so user can see the error details
+                    };
+                }
+            } catch (error) {
+                updateTestStep(`❌ Error: ${error.message}`, 'error');
+                // If deployment was created but errored, try to clean it up
+                if (deployment && deployment.id) {
+                    try {
+                        await safeFetch(`${API_URL}/deploy/${deployment.id}`, { method: 'DELETE' });
+                        updateTestStep('🗑️ Cleaned up failed deployment record', 'info');
+                    } catch (cleanupError) {
+                        updateTestStep('⚠️ Could not remove failed deployment record', 'error');
+                    }
+                }
+                resetTestDeploymentButton();
+            }
         }
     });
 }
@@ -372,7 +474,9 @@ async function populateEditCompanyDropdown() {
     if (!companySelect) return;
 
     try {
-        const companies = await fetchCompanies();
+        const dnsProviders = await fetchDnsProviders();
+        const companies = [...new Set(dnsProviders.map(provider => provider.company))];
+        
         companySelect.innerHTML = '<option value="">Select Company</option>';
         companies.forEach(company => {
             const option = document.createElement('option');
@@ -516,6 +620,27 @@ function setupEditDeploymentForm() {
 }
 
 let deploymentHandlersInitialized = false;
+let currentEventSource = null;
+
+function resetTestDeploymentButton() {
+    const button = document.getElementById('test-deployment-btn');
+    if (button) {
+        button.textContent = 'Deploy Certificate';
+        button.disabled = false;
+        button.style.backgroundColor = '';
+    }
+    
+    // Close any active EventSource connection
+    if (currentEventSource) {
+        currentEventSource.close();
+        currentEventSource = null;
+    }
+}
+
+function resetModalState() {
+    // Clear any test progress display and reset modal state
+    clearTestProgressDisplay();
+}
 
 export function initializeDeploymentHandlers() {
     if (deploymentHandlersInitialized) return;

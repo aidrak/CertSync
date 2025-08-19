@@ -18,7 +18,5 @@ class PanosApiTester:
 
     async def run_all_tests(self) -> dict:
         # Placeholder for actual PanOS API validation logic
-        logger.info(
-            "Palo Alto API validation is not yet implemented. Assuming success."
-        )
+        logger.info("Palo Alto API validation is not yet implemented. Assuming success.")
         return {"overall_success": True, "tests": {"Connection": "PASS"}}

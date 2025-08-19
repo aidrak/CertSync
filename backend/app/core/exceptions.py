@@ -1,7 +1,9 @@
 """
 Centralized exception handling for consistent error responses
 """
+
 import logging
+
 from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
@@ -44,9 +46,7 @@ class ExternalServiceError(CertSyncError):
         super().__init__(f"Failed to {action} via {service}", 502)
 
 
-def handle_generic_exception(
-    e: Exception, operation: str, resource: str = None
-) -> HTTPException:
+def handle_generic_exception(e: Exception, operation: str, resource: str = None) -> HTTPException:
     """
     Convert exceptions to consistent HTTPException responses
     Logs detailed error server-side, returns generic message to client

@@ -1,11 +1,14 @@
 """
 This module handles CRUD operations for certificates.
 """
+
 import logging
 import re
 from datetime import datetime, timedelta
 from typing import Union
 
+from app.core.security import decrypt_secret, encrypt_secret
+from app.db import models
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import dsa, ec, rsa
@@ -15,16 +18,12 @@ from cryptography.hazmat.primitives.serialization import (
 )
 from sqlalchemy.orm import Session
 
-from app.core.security import decrypt_secret, encrypt_secret
-from app.db import models
 from . import crud_deployment
 
 logger = logging.getLogger(__name__)
 
 # Supported private key types for PKCS12 serialization
-PKCS12PrivateKeyTypes = Union[
-    rsa.RSAPrivateKey, dsa.DSAPrivateKey, ec.EllipticCurvePrivateKey
-]
+PKCS12PrivateKeyTypes = Union[rsa.RSAPrivateKey, dsa.DSAPrivateKey, ec.EllipticCurvePrivateKey]
 
 
 def parse_certificate_expiration(certificate_body: str) -> datetime:
@@ -46,11 +45,7 @@ def parse_certificate_expiration(certificate_body: str) -> datetime:
 
 def get_certificate(db: Session, certificate_id: int):
     """Get a single certificate by ID."""
-    return (
-        db.query(models.Certificate)
-        .filter(models.Certificate.id == certificate_id)
-        .first()
-    )
+    return db.query(models.Certificate).filter(models.Certificate.id == certificate_id).first()
 
 
 def get_certificates(db: Session, skip: int = 0, limit: int = 100):
@@ -96,9 +91,7 @@ def create_certificate(
         raise
 
 
-def update_certificate(
-    db: Session, certificate_id: int, certificate_body: str, private_key: str
-):
+def update_certificate(db: Session, certificate_id: int, certificate_body: str, private_key: str):
     """Update certificate for renewal."""
     logger.info("Updating certificate for certificate_id=%s", certificate_id)
 
@@ -123,9 +116,7 @@ def update_certificate(
         setattr(db_cert, "expires_at", expires_at)
         setattr(db_cert, "issued_at", datetime.utcnow())
 
-        crud_deployment.update_deployment_renewal_dates_for_certificate(
-            db, certificate_id
-        )
+        crud_deployment.update_deployment_renewal_dates_for_certificate(db, certificate_id)
 
         logger.info(
             "Certificate %s updated successfully for renewal",
@@ -201,9 +192,7 @@ def create_pfx(db: Session, certificate_id: int, password: str) -> bytes:
         key=private_key,
         cert=end_entity_cert,
         cas=ca_certs,
-        encryption_algorithm=serialization.BestAvailableEncryption(
-            password.encode("utf-8")
-        ),
+        encryption_algorithm=serialization.BestAvailableEncryption(password.encode("utf-8")),
     )
 
     return pfx_data

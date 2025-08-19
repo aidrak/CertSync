@@ -1,6 +1,6 @@
 import asyncio
-from typing import Dict, List, Deque
 from collections import deque
+from typing import Deque, Dict, List
 
 
 class LogStreamer:

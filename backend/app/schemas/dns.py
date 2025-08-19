@@ -1,6 +1,7 @@
-from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from app.db.models import DnsProviderType
+from pydantic import BaseModel
 
 
 class DnsProviderAccountBase(BaseModel):

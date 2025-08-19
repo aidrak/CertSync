@@ -10,7 +10,5 @@ class DigitalOceanTokenTester:
 
     def run_all_tests(self) -> bool:
         # Placeholder for actual DigitalOcean token validation logic
-        logger.info(
-            "DigitalOcean token validation is not yet implemented. Assuming success."
-        )
+        logger.info("DigitalOcean token validation is not yet implemented. Assuming success.")
         return True

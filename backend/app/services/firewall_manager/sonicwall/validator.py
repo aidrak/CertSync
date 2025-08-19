@@ -1,56 +1,60 @@
 import asyncio
-import aiohttp
-import ssl
 import base64
-import logging
-import json
-import ftplib
-import tempfile
-import secrets
-import subprocess
-import os
 import datetime
+import ftplib
+import json
+import logging
+import os
+import secrets
+import ssl
+import subprocess
+import tempfile
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Union
+
+import aiohttp
 from app.core.config import settings
 
 # Imports for cryptography
 from cryptography import x509
-from cryptography.x509.oid import NameOID
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.backends import default_backend
+from cryptography.x509.oid import NameOID
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
 
 class SonicWallValidator:
-    def __init__(self, firewall_settings):
+    def __init__(self, firewall_settings: Any) -> None:
         self.firewall_settings = firewall_settings
-        self.base_url = f"https://{self.firewall_settings.public_ip}:{self.firewall_settings.port}/api/sonicos"  # noqa: E501
+        self.base_url: str = (
+            f"https://{self.firewall_settings.public_ip}:{self.firewall_settings.port}/api/sonicos"  # noqa: E501
+        )
 
-        username = self.firewall_settings.admin_username
-        password = self.firewall_settings.api_key
-        credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
+        username: str = self.firewall_settings.admin_username
+        password: str = self.firewall_settings.api_key
+        credentials: str = base64.b64encode(f"{username}:{password}".encode()).decode()
 
-        self.headers = {
+        self.headers: Dict[str, str] = {
             "Authorization": f"Basic {credentials}",
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
-        self.test_files_created = []
-        self.current_test_cert_name = None
+        self.test_files_created: List[str] = []
+        self.current_test_cert_name: Optional[str] = None
 
     def _generate_sonicwall_friendly_cert_name(self) -> str:
         """Generate SonicWall-friendly certificate name."""
         timestamp = datetime.datetime.now().strftime("%m%d%H%M")
-        unique_id = secrets.token_hex(3)
-        cert_name = f"TestCert_{timestamp}_{unique_id}"
+        unique_id = secrets.token_hex(2)
+        cert_name = f"Test_{timestamp}_{unique_id}"
         logger.info(f"   Generated SonicWall-friendly cert name: {cert_name}")
         return cert_name
 
     async def _make_request(
-        self, session, method: str, endpoint: str, data=None, timeout: int = 30
-    ):
+        self, session: aiohttp.ClientSession, method: str, endpoint: str, data: Optional[Union[str, Dict[str, Any], List[Any]]] = None, timeout: int = 30
+    ) -> Tuple[Optional[int], Dict[str, Any]]:
         """Make API request and return (status, response_data)."""
         url = f"{self.base_url}{endpoint}"
         headers = self.headers.copy()
@@ -82,8 +86,7 @@ class SonicWallValidator:
                 try:
                     if (
                         raw_text.strip().startswith(("{", "["))
-                        and "application/json"
-                        in response.headers.get("Content-Type", "").lower()
+                        and "application/json" in response.headers.get("Content-Type", "").lower()
                     ):
                         result_json = json.loads(raw_text)
                         return status, result_json
@@ -96,12 +99,10 @@ class SonicWallValidator:
             logger.error(f"Request to {url} failed: {e}")
             return None, {"error": str(e)}
 
-    async def authenticate(self, session) -> bool:
+    async def authenticate(self, session: aiohttp.ClientSession) -> bool:
         """Authenticate to SonicWall API."""
         auth_data = {"override": True}
-        status, response = await self._make_request(
-            session, "POST", "/auth", data=auth_data
-        )
+        status, response = await self._make_request(session, "POST", "/auth", data=auth_data)
 
         if status not in [200, 201, 204]:
             logger.error(f"Authentication failed: HTTP {status} - {response}")
@@ -109,16 +110,14 @@ class SonicWallValidator:
 
         return True
 
-    async def logout(self, session):
+    async def logout(self, session: aiohttp.ClientSession) -> None:
         """Logout from SonicWall API."""
         try:
             await self._make_request(session, "POST", "/auth/logout")
         except Exception as e:
             logger.warning(f"Error during logout: {e}")
 
-    async def check_certificate_exists(
-        self, session, cert_name: str, context: str = ""
-    ) -> bool:
+    async def check_certificate_exists(self, session: aiohttp.ClientSession, cert_name: str, context: str = "") -> bool:
         """Check if certificate exists on SonicWall."""
         cli_command = f"show certificate name {cert_name} status\nexit"
         status, response_data = await self._make_request(
@@ -128,11 +127,7 @@ class SonicWallValidator:
         if status is None:
             return False
 
-        if (
-            status == 200
-            and isinstance(response_data, dict)
-            and "certificate" in response_data
-        ):
+        if status == 200 and isinstance(response_data, dict) and "certificate" in response_data:
             if response_data.get("certificate") == cert_name:
                 return True
 
@@ -172,16 +167,12 @@ class SonicWallValidator:
             .public_key(key.public_key())
             .serial_number(x509.random_serial_number())
             .not_valid_before(
-                datetime.datetime.now(datetime.timezone.utc)
-                - datetime.timedelta(days=1)
+                datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
             )
             .not_valid_after(
-                datetime.datetime.now(datetime.timezone.utc)
-                + datetime.timedelta(days=365)
+                datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365)
             )
-            .add_extension(
-                x509.BasicConstraints(ca=False, path_length=None), critical=True
-            )
+            .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
             .sign(key, hashes.SHA256(), default_backend())
         )
         cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
@@ -194,13 +185,11 @@ class SonicWallValidator:
 
     def _create_pfx(self, cert_pem: str, key_pem: str, password: str) -> bytes:
         """Create PFX file using OpenSSL."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", delete=False, suffix=".crt"
-        ) as cert_file, tempfile.NamedTemporaryFile(
-            mode="w", delete=False, suffix=".key"
-        ) as key_file, tempfile.NamedTemporaryFile(
-            delete=False, suffix=".pfx"
-        ) as pfx_file:
+        with (
+            tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".crt") as cert_file,
+            tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".key") as key_file,
+            tempfile.NamedTemporaryFile(delete=False, suffix=".pfx") as pfx_file,
+        ):
             cert_file.write(cert_pem)
             key_file.write(key_pem)
             cert_file_path = cert_file.name
@@ -230,7 +219,7 @@ class SonicWallValidator:
                 if os.path.exists(path):
                     os.unlink(path)
 
-    async def upload_certificate_to_ftp(self, cert_name: str):
+    async def upload_certificate_to_ftp(self, cert_name: str) -> Tuple[str, str]:
         """Upload test certificate to FTP server."""
         cert_cn_suffix = secrets.token_hex(4)
         cert_common_name = f"cert.test{cert_cn_suffix}.local"
@@ -262,7 +251,7 @@ class SonicWallValidator:
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
 
-    def _ftp_upload(self, local_path, remote_filename):
+    def _ftp_upload(self, local_path: str, remote_filename: str) -> None:
         with ftplib.FTP() as ftp:
             ftp.connect(settings.FTP_HOST, settings.FTP_PORT)
             ftp.login(settings.FTP_USER, settings.FTP_PASS)
@@ -270,7 +259,7 @@ class SonicWallValidator:
                 ftp.storbinary(f"STOR {remote_filename}", f)
 
     async def import_certificate(
-        self, session, cert_name: str, ftp_url: str, pfx_password: str
+        self, session: aiohttp.ClientSession, cert_name: str, ftp_url: str, pfx_password: str
     ) -> bool:
         """Import certificate using Direct CLI."""
         cli_commands = f"certificates\nimport cert-key-pair {cert_name} password {pfx_password} ftp {ftp_url}\ncommit\nend\nexit"  # noqa: E501
@@ -309,11 +298,9 @@ class SonicWallValidator:
             logger.error(f"   ❌ Import command failed: HTTP {status} - {response}")
             return False
 
-    async def delete_certificate(self, session, cert_name: str) -> bool:
+    async def delete_certificate(self, session: aiohttp.ClientSession, cert_name: str) -> bool:
         """Delete certificate using Direct CLI."""
-        delete_commands = (
-            f'certificates\nno certificate "{cert_name}"\ncommit\nend\nexit'
-        )
+        delete_commands = f'certificates\nno certificate "{cert_name}"\ncommit\nend\nexit'
         status, response = await self._make_request(
             session, "POST", "/direct/cli", data=delete_commands
         )
@@ -329,9 +316,7 @@ class SonicWallValidator:
                                 "not found" in info.get("message", "").lower()
                                 or "does not exist" in info.get("message", "").lower()
                             ):
-                                return (
-                                    True  # Cert is already gone, so this is a success.
-                                )
+                                return True  # Cert is already gone, so this is a success.
                             return False
                         if (
                             "certificate has been successfully deleted"
@@ -342,7 +327,7 @@ class SonicWallValidator:
         else:
             return False
 
-    async def cleanup_ftp_files(self):
+    async def cleanup_ftp_files(self) -> None:
         """Clean up FTP test files."""
         if not self.test_files_created:
             return
@@ -352,7 +337,7 @@ class SonicWallValidator:
         except Exception as e:
             logger.error(f"FTP cleanup connection error: {e}")
 
-    def _ftp_cleanup(self):
+    def _ftp_cleanup(self) -> None:
         with ftplib.FTP() as ftp:
             ftp.connect(settings.FTP_HOST, settings.FTP_PORT)
             ftp.login(settings.FTP_USER, settings.FTP_PASS)
@@ -362,7 +347,7 @@ class SonicWallValidator:
                 except Exception:
                     pass
 
-    async def run_complete_test(self):
+    async def run_complete_test(self) -> AsyncGenerator[str, None]:
         """Run complete certificate import and delete test."""
         self.current_test_cert_name = self._generate_sonicwall_friendly_cert_name()
         yield "🚀 SonicWall Certificate Manager Test"
@@ -407,7 +392,7 @@ class SonicWallValidator:
                 if not ftp_url:
                     yield "❌ Failed to upload certificate to FTP. Aborting."
                     return
-                yield f"✅ Certificate uploaded via FTP: {ftp_url}"
+                yield "✅ Certificate uploaded via FTP successfully"
 
                 yield f"Importing certificate '{self.current_test_cert_name}'..."
                 if not await self.import_certificate(
@@ -421,9 +406,7 @@ class SonicWallValidator:
                 await asyncio.sleep(10)
 
                 yield "Verifying certificate import..."
-                if not await self.check_certificate_exists(
-                    session, self.current_test_cert_name
-                ):
+                if not await self.check_certificate_exists(session, self.current_test_cert_name):
                     yield "❌ Certificate import verification failed. Aborting."
                     return
                 yield "✅ Certificate import verified."

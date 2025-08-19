@@ -1,9 +1,11 @@
-import logging
-import aiohttp
-import ssl
-import base64
 import asyncio
+import base64
+import logging
+import ssl
 from typing import AsyncIterator, Optional, Tuple
+
+import aiohttp
+
 from ..base import CertificateData
 
 logger = logging.getLogger(__name__)
@@ -46,16 +48,12 @@ class FortiGateDeployManager:
 
         try:
             if method.upper() == "POST":
-                async with session.post(
-                    url, headers=self.headers, json=data
-                ) as response:
+                async with session.post(url, headers=self.headers, json=data) as response:
                     result = await response.json()
                     logger.info(f"POST {endpoint}: {response.status} - {result}")
                     return response.status, result
             elif method.upper() == "PUT":
-                async with session.put(
-                    url, headers=self.headers, json=data
-                ) as response:
+                async with session.put(url, headers=self.headers, json=data) as response:
                     result = await response.json()
                     logger.info(f"PUT {endpoint}: {response.status} - {result}")
                     return response.status, result
@@ -76,9 +74,7 @@ class FortiGateDeployManager:
             return status_code, {"error": error_details}
         return 0, {}
 
-    async def create_vpn_certificate(
-        self, cert_data: CertificateData
-    ) -> AsyncIterator[str]:
+    async def create_vpn_certificate(self, cert_data: CertificateData) -> AsyncIterator[str]:
         """Create/import certificate for VPN assignment."""
         ssl_context = ssl.create_default_context()
         if not self.verify_ssl:
@@ -92,12 +88,8 @@ class FortiGateDeployManager:
                 yield f"Creating certificate '{cert_data.cert_name}' for VPN assignment..."
 
                 # Base64 encode for monitor API
-                cert_b64 = base64.b64encode(cert_data.cert_body.encode("utf-8")).decode(
-                    "utf-8"
-                )
-                key_b64 = base64.b64encode(
-                    cert_data.private_key.encode("utf-8")
-                ).decode("utf-8")
+                cert_b64 = base64.b64encode(cert_data.cert_body.encode("utf-8")).decode("utf-8")
+                key_b64 = base64.b64encode(cert_data.private_key.encode("utf-8")).decode("utf-8")
 
                 payload = {
                     "type": "regular",
@@ -125,9 +117,7 @@ class FortiGateDeployManager:
         """Get current SSL VPN settings."""
         logger.info("Getting current SSL VPN settings...")
 
-        status, result = await self._make_request(
-            session, "GET", "/cmdb/vpn.ssl/settings"
-        )
+        status, result = await self._make_request(session, "GET", "/cmdb/vpn.ssl/settings")
 
         if status == 200:
             settings = result.get("results", {})
@@ -142,9 +132,7 @@ class FortiGateDeployManager:
             logger.error(f"Failed to get VPN settings: {result}")
             return False, "", {}
 
-    async def deploy_vpn_certificate(
-        self, cert_data: CertificateData
-    ) -> AsyncIterator[str]:
+    async def deploy_vpn_certificate(self, cert_data: CertificateData) -> AsyncIterator[str]:
         """Deploy certificate to SSL VPN service."""
         ssl_context = ssl.create_default_context()
         if not self.verify_ssl:
@@ -161,9 +149,7 @@ class FortiGateDeployManager:
                 # Step 1: Get current VPN settings
                 yield "📋 Getting current SSL VPN settings..."
                 await asyncio.sleep(1)  # Show progress step
-                success, original_cert, settings = await self.get_current_vpn_settings(
-                    session
-                )
+                success, original_cert, settings = await self.get_current_vpn_settings(session)
                 if not success:
                     yield "❌ Failed to get current VPN settings"
                     yield "💡 Check API key, FortiGate connectivity, and admin privileges"
@@ -233,9 +219,7 @@ class FortiGateDeployManager:
             async with aiohttp.ClientSession(connector=connector) as session:
                 yield f"🔍 Verifying VPN certificate '{cert_name}' deployment..."
 
-                success, current_cert, settings = await self.get_current_vpn_settings(
-                    session
-                )
+                success, current_cert, settings = await self.get_current_vpn_settings(session)
 
                 if success and current_cert == cert_name:
                     yield "✅ VPN certificate verification successful!"

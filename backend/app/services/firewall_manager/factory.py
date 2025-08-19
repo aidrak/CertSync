@@ -1,9 +1,9 @@
 from ...db.models import TargetSystemType
 from .base import FirewallBase as FirewallManager
 from .fortigate.provider import FortiGateManager
+from .fortigate.validator import FortiGateValidator
 from .panos.provider import PanosManager
 from .sonicwall.provider import SonicWallManager
-from .fortigate.validator import FortiGateValidator
 from .sonicwall.validator import SonicWallValidator
 
 # Import PanosValidator if it exists, otherwise create a placeholder
@@ -54,9 +54,7 @@ class FirewallManagerFactory:
                 ftp_config=ftp_config,
             )
         else:
-            raise ValueError(
-                f"Unsupported firewall vendor: {firewall_settings.system_type}"
-            )
+            raise ValueError(f"Unsupported firewall vendor: {firewall_settings.system_type}")
 
 
 class FirewallValidatorFactory:

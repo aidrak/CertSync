@@ -1,10 +1,13 @@
 """
 This module manages the background worker for certificate renewals.
 """
+
 import json
 import logging
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 from .core.config import settings
 from .core.security import decrypt_secret
 from .crud import crud_certificate
@@ -34,9 +37,7 @@ async def renew_certificate(cert_id: int):
 
         dns_account = cert.dns_provider_account
         if not dns_account:
-            logger.error(
-                "No DNS provider account linked to certificate %s", cert.common_name
-            )
+            logger.error("No DNS provider account linked to certificate %s", cert.common_name)
             return
 
         decrypted_creds = decrypt_secret(dns_account.credentials)
@@ -49,9 +50,7 @@ async def renew_certificate(cert_id: int):
         )
 
         if not dns_provider:
-            logger.error(
-                "Unsupported DNS provider type: %s", dns_account.provider_type.value
-            )
+            logger.error("Unsupported DNS provider type: %s", dns_account.provider_type.value)
             return
 
         le_service = LetsEncryptService(

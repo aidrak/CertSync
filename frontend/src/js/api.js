@@ -103,7 +103,7 @@ export async function fetchLogs() {
             safeFetch(`${API_URL}/system/timezone/`)
         ]);
         const timezone = timezoneData.timezone;
-        const logsTable = document.getElementById('logs-table')?.getElementsByTagName('tbody');
+        const logsTable = document.querySelector('#logs-table tbody');
         if (logsTable) {
             logsTable.innerHTML = '';
             logs.forEach(log => {
@@ -114,7 +114,7 @@ export async function fetchLogs() {
                     <td>${escapeHtml(log.action)}</td>
                     <td>${escapeHtml(log.target)}</td>
                     <td class="log-message">${escapeHtml(log.message)}</td>
-                    <td>${log.user ? escapeHtml(log.user.username) : 'N/A'}</td>
+                    <td>${log.user ? escapeHtml(log.user.username) : 'System'}</td>
                 `;
                 row.addEventListener('click', () => {
                     const modal = document.getElementById('log-message-modal');
